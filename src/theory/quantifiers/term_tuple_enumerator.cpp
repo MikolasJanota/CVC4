@@ -97,7 +97,7 @@ bool TermTupleEnumeratorBase::nextCombination(unsigned stage, /*out*/ std::vecto
     if (new_value < d_terms_sizes[digit] && new_value <= stage)
     {
       termIndex[digit] = new_value;
-      std::fill_n(termIndex.begin(), digit, 0);
+      std::fill(termIndex.begin() + digit + 1, termIndex.end(), 0);
       return true;
     }
   }
@@ -107,13 +107,19 @@ bool TermTupleEnumeratorBase::nextCombination(unsigned stage, /*out*/ std::vecto
 bool TermTupleEnumeratorBase::tryStage(unsigned stage, /*out*/ std::vector<unsigned>& termIndex)
 {
   Trace("inst-alg-rd") << "Try stage " << stage << "..." << std::endl;
+  const unsigned child_count = s_quantifier[0].getNumChildren();
+  Assert(termIndex.size() == child_count);
+  // skipping  some elements that have already been  definitely seen, TODO: should we skip all?
+  if (child_count > 0) 
+  {
+    std::fill(termIndex.begin(), termIndex.end(), 0);
+    termIndex[child_count - 1] = stage;
+  }
 
   // try instantiation
   std::vector<Node> terms;
-  const unsigned child_count = s_quantifier[0].getNumChildren();
   terms.reserve(child_count);
-  bool go = true;
-  while (go)
+  do
   {
     Trace("inst-alg-rd") << "Try instantiation: " << termIndex << std::endl;
     terms.clear();
@@ -140,8 +146,7 @@ bool TermTupleEnumeratorBase::tryStage(unsigned stage, /*out*/ std::vector<unsig
       // indices computed in above calls)
       return false;
     }
-    go = nextCombination(stage, termIndex);
-  }
+  } while(nextCombination(stage, termIndex));
   return false;
 }
 
