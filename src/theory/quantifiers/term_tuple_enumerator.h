@@ -7,6 +7,7 @@
 #ifndef TERM_TUPLE_ENUMERATOR_H_7640
 #define TERM_TUPLE_ENUMERATOR_H_7640
 #include "theory/quantifiers_engine.h"
+#include "theory/quantifiers/relevant_domain.h"
 namespace CVC4 {
 namespace theory {
 namespace quantifiers {
@@ -16,7 +17,8 @@ class TermTupleEnumeratorInterface {
     virtual ~TermTupleEnumeratorInterface() = default;
 };
 
-TermTupleEnumeratorInterface * mkTermTupleEnumerator(QuantifiersEngine *qe, Node quantifier, bool fullEffort, bool isRd);
+TermTupleEnumeratorInterface * mkTermTupleEnumerator(QuantifiersEngine *qe,
+    Node quantifier, bool fullEffort, bool isRd, RelevantDomain* rd);
 
 } /* CVC4::theory::quantifiers namespace */
 } /* CVC4::theory namespace */
