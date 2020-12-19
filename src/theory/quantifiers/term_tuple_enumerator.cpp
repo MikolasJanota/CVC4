@@ -22,7 +22,7 @@ namespace theory {
 namespace quantifiers {
 class TermTupleEnumeratorBase : public TermTupleEnumeratorInterface {
   public:
-    TermTupleEnumeratorBase(QuantifiersEngine *qe, Node  quantifier, bool fullEffort)
+    TermTupleEnumeratorBase(QuantifiersEngine *qe, Node quantifier, bool fullEffort)
       : d_quantEngine( qe ), s_quantifier(quantifier), s_fullEffort(fullEffort) {}
     virtual ~TermTupleEnumeratorBase() = default;
     virtual bool next() override;
@@ -48,10 +48,29 @@ class TermTupleEnumeratorBasic : public TermTupleEnumeratorBase {
     virtual Node getTerm(unsigned child_ix, unsigned term_index) override;
 };
 
-TermTupleEnumeratorInterface * mkTermTupleEnumerator(QuantifiersEngine *qe, Node quantifier, bool fullEffort, bool isRd) 
+class TermTupleEnumeratorRD : public TermTupleEnumeratorBase {
+  public:
+    TermTupleEnumeratorRD(QuantifiersEngine *qe, Node quantifier, bool fullEffort, RelevantDomain* rd)
+      : TermTupleEnumeratorBase(qe, quantifier, fullEffort), d_rd(rd) {}
+    virtual ~TermTupleEnumeratorRD() = default;
+  protected:
+    RelevantDomain* const d_rd;
+    virtual unsigned prepareTerms(unsigned child_ix) override
+    {
+      return d_rd->getRDomain(s_quantifier, child_ix)->d_terms.size();
+    }
+    virtual Node getTerm(unsigned child_ix, unsigned term_index) override
+    {
+      return d_rd->getRDomain(s_quantifier, child_ix)->d_terms[term_index];
+    }
+};
+
+TermTupleEnumeratorInterface * mkTermTupleEnumerator(QuantifiersEngine *qe,
+    Node quantifier, bool fullEffort, bool isRd, RelevantDomain* rd) 
 {
-  Assert(!isRd); // TODO
-  return new TermTupleEnumeratorBasic(qe, quantifier, fullEffort);
+  return isRd ?
+    static_cast<TermTupleEnumeratorInterface*>(new TermTupleEnumeratorRD(qe, quantifier, fullEffort, rd))
+    : static_cast<TermTupleEnumeratorInterface*>(new TermTupleEnumeratorBasic(qe, quantifier, fullEffort));
 }
 
 bool TermTupleEnumeratorBase::next()
@@ -63,9 +82,10 @@ bool TermTupleEnumeratorBase::next()
     return false;
   }
   unsigned max_stage = 0;
+  const unsigned variable_count = s_quantifier[0].getNumChildren();
 
   // prepare a sequence of terms for each quantified variable
-  for (unsigned i = 0; i < s_quantifier[0].getNumChildren(); i++)
+  for (unsigned i = 0; i < variable_count; i++)
   {
     const unsigned terms_size = prepareTerms(i);
     Trace("inst-alg-rd") << "Variable " << i << " has " << terms_size
@@ -81,7 +101,7 @@ bool TermTupleEnumeratorBase::next()
   // go through stages
   Trace("inst-alg-rd") << "Will do " << max_stage << " stages of instantiation." << std::endl;
   bool stage_successful = false;
-  std::vector<unsigned> termIndex(s_quantifier.getNumChildren(), 0);
+  std::vector<unsigned> termIndex(variable_count, 0);
   for (unsigned stage = 0; stage <= max_stage && !stage_successful; stage++)
   {
     stage_successful = tryStage(stage, termIndex);
@@ -107,23 +127,24 @@ bool TermTupleEnumeratorBase::nextCombination(unsigned stage, /*out*/ std::vecto
 bool TermTupleEnumeratorBase::tryStage(unsigned stage, /*out*/ std::vector<unsigned>& termIndex)
 {
   Trace("inst-alg-rd") << "Try stage " << stage << "..." << std::endl;
-  const unsigned child_count = s_quantifier[0].getNumChildren();
-  Assert(termIndex.size() == child_count);
-  // skipping  some elements that have already been  definitely seen, TODO: should we skip all?
-  if (child_count > 0) 
+  const unsigned var_count = s_quantifier[0].getNumChildren();
+  Assert(termIndex.size() == var_count);
+  // skipping  some elements that have already been definitely seen, TODO: should we skip all?
+  if (var_count > 0) 
   {
     std::fill(termIndex.begin(), termIndex.end(), 0);
-    termIndex[child_count - 1] = stage;
+    const unsigned top_value = d_terms_sizes[var_count - 1] ? d_terms_sizes[var_count - 1] - 1 : 0;
+    termIndex[var_count - 1] = std::min(stage, top_value);
   }
 
   // try instantiation
   std::vector<Node> terms;
-  terms.reserve(child_count);
+  terms.reserve(var_count);
   do
   {
     Trace("inst-alg-rd") << "Try instantiation: " << termIndex << std::endl;
     terms.clear();
-    for (unsigned child_ix = 0; child_ix < child_count; child_ix++)
+    for (unsigned child_ix = 0; child_ix < var_count; child_ix++)
     {
       const Node t = d_terms_sizes[child_ix] == 0 ? Node::null() : getTerm(child_ix, termIndex[child_ix]);
       terms.push_back(t);
@@ -183,8 +204,7 @@ unsigned TermTupleEnumeratorBasic::prepareTerms(unsigned child_ix)
 
 Node TermTupleEnumeratorBasic::getTerm(unsigned child_ix, unsigned term_index)
 {
-  Assert(child_ix < d_term_db_list.size());
-  const TypeNode type_node = s_quantifier[0][child_ix].getType(); // TODO: should we worry about efficiency here,  old version used to store this?
+  const TypeNode type_node = s_quantifier[0][child_ix].getType(); // TODO: should we worry about efficiency here, old version used to store this?
   Assert(term_index < d_term_db_list[type_node].size());
   return d_term_db_list[type_node][term_index];
 }
