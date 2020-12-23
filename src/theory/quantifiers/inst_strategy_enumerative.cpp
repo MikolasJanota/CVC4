@@ -178,8 +178,9 @@ void InstStrategyEnum::check(Theory::Effort e, QEffort quant_e)
 
 bool InstStrategyEnum::process(Node f, bool fullEffort, bool isRd)
 {
-  std::unique_ptr<TermTupleEnumeratorInterface> enumerator(mkTermTupleEnumerator(d_quantEngine, f, fullEffort, isRd, d_rd));
-  for (enumerator->init(); enumerator->hasNext(); )
+  std::unique_ptr<TermTupleEnumeratorInterface> enumerator(
+      mkTermTupleEnumerator(d_quantEngine, f, fullEffort, isRd, d_rd));
+  for (enumerator->init(); enumerator->hasNext();)
   {
     if (enumerator->next())
     {

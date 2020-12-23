@@ -11,16 +11,20 @@
 namespace CVC4 {
 namespace theory {
 namespace quantifiers {
-class TermTupleEnumeratorInterface {
-  public:
-    virtual void init() = 0;
-    virtual bool hasNext() = 0;
-    virtual bool next() = 0;
-    virtual ~TermTupleEnumeratorInterface() = default;
+class TermTupleEnumeratorInterface
+{
+ public:
+  virtual void init() = 0;
+  virtual bool hasNext() = 0;
+  virtual bool next() = 0;
+  virtual ~TermTupleEnumeratorInterface() = default;
 };
 
-TermTupleEnumeratorInterface * mkTermTupleEnumerator(QuantifiersEngine *qe,
-    Node quantifier, bool fullEffort, bool isRd, RelevantDomain* rd);
+TermTupleEnumeratorInterface* mkTermTupleEnumerator(QuantifiersEngine* qe,
+                                                    Node quantifier,
+                                                    bool fullEffort,
+                                                    bool isRd,
+                                                    RelevantDomain* rd);
 
 } /* CVC4::theory::quantifiers namespace */
 } /* CVC4::theory namespace */
