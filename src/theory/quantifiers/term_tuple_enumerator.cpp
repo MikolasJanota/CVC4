@@ -4,104 +4,131 @@
  * Created on:  Fri Dec 18 14:26:58 CET 2020
  * Copyright (C) 2020, Mikolas Janota
  */
-#include <iterator>
-#include <algorithm>
 #include "theory/quantifiers/term_tuple_enumerator.h"
+
+#include <algorithm>
+#include <iterator>
+
 #include "base/map_util.h"
 
 namespace CVC4 {
 
-  //TODO: kosher?
-  template <typename T>
-  CVC4ostream& operator<< (CVC4ostream& out, const std::vector<T>& v) {
-    out << "[ ";
-    std::copy(v.begin(), v.end(), std::ostream_iterator<T>(out, " "));
-    return out << "]";
-  }
+// TODO: kosher?
+template <typename T>
+CVC4ostream& operator<<(CVC4ostream& out, const std::vector<T>& v)
+{
+  out << "[ ";
+  std::copy(v.begin(), v.end(), std::ostream_iterator<T>(out, " "));
+  return out << "]";
+}
 
 namespace theory {
 namespace quantifiers {
-class TermTupleEnumeratorBase : public TermTupleEnumeratorInterface {
-  public:
-    TermTupleEnumeratorBase(QuantifiersEngine *qe, Node quantifier, bool fullEffort)
-      : d_quantEngine( qe ),
-      d_quantifier(quantifier),
-      d_fullEffort(fullEffort),
-      d_variableCount(d_quantifier[0].getNumChildren()),
-      d_stepCounter(0) {}
-    virtual ~TermTupleEnumeratorBase() = default;
-    virtual void init() override;
-    virtual bool hasNext() override { return d_hasNext; }
-    virtual bool next() override;
-  protected:
-    QuantifiersEngine* const d_quantEngine;
-    const Node               d_quantifier;
-    const bool               d_fullEffort;
-    const size_t             d_variableCount;
-    std::vector<TypeNode>    d_typeCache;
-    std::vector<size_t>      d_termsSizes;
-    std::vector<size_t>      d_termIndex;
-    uint32_t                 d_stepCounter;
-    size_t                   d_stage;
-    size_t                   d_stageCount;
-    bool                     d_hasNext;
-    /* Instantiate current combination */
-    bool instantiate();
-    /* Allow larger indices from now on */
-    bool increaseStage();
-    /* Move on in the current stage */
-    bool nextCombination();
-    /**
-     *  Set up terms for  given variable.
-     */
-    virtual size_t prepareTerms(size_t child_ix) = 0;
-    /**
-     *  Get a given term for a given variable.
-     */
-    virtual Node getTerm(size_t child_ix, size_t term_index) CVC4_WARN_UNUSED_RESULT = 0;
-};
-
-class TermTupleEnumeratorBasic : public TermTupleEnumeratorBase {
-  public:
-    TermTupleEnumeratorBasic(QuantifiersEngine *qe, Node quantifier, bool fullEffort)
-      : TermTupleEnumeratorBase(qe, quantifier, fullEffort) {}
-    virtual ~TermTupleEnumeratorBasic() = default;
-  protected:
-    std::map<TypeNode, std::vector<Node> > d_term_db_list;
-    virtual size_t prepareTerms(size_t child_ix) override;
-    virtual Node getTerm(size_t child_ix, size_t term_index) override;
-};
-
-class TermTupleEnumeratorRD : public TermTupleEnumeratorBase {
-  public:
-    TermTupleEnumeratorRD(QuantifiersEngine *qe, Node quantifier, bool fullEffort, RelevantDomain* rd)
-      : TermTupleEnumeratorBase(qe, quantifier, fullEffort), d_rd(rd) {}
-    virtual ~TermTupleEnumeratorRD() = default;
-  protected:
-    RelevantDomain* const d_rd;
-    virtual size_t prepareTerms(size_t child_ix) override
-    {
-      return d_rd->getRDomain(d_quantifier, child_ix)->d_terms.size();
-    }
-    virtual Node getTerm(size_t child_ix, size_t term_index) override
-    {
-      return d_rd->getRDomain(d_quantifier, child_ix)->d_terms[term_index];
-    }
-};
-
-TermTupleEnumeratorInterface * mkTermTupleEnumerator(QuantifiersEngine *qe,
-    Node quantifier, bool fullEffort, bool isRd, RelevantDomain* rd) 
+class TermTupleEnumeratorBase : public TermTupleEnumeratorInterface
 {
-  return isRd ?
-    static_cast<TermTupleEnumeratorInterface*>(new TermTupleEnumeratorRD(qe, quantifier, fullEffort, rd))
-    : static_cast<TermTupleEnumeratorInterface*>(new TermTupleEnumeratorBasic(qe, quantifier, fullEffort));
+ public:
+  TermTupleEnumeratorBase(QuantifiersEngine* qe,
+                          Node quantifier,
+                          bool fullEffort)
+      : d_quantEngine(qe),
+        d_quantifier(quantifier),
+        d_fullEffort(fullEffort),
+        d_variableCount(d_quantifier[0].getNumChildren()),
+        d_stepCounter(0)
+  {
+  }
+  virtual ~TermTupleEnumeratorBase() = default;
+  virtual void init() override;
+  virtual bool hasNext() override { return d_hasNext; }
+  virtual bool next() override;
+
+ protected:
+  QuantifiersEngine* const d_quantEngine;
+  const Node d_quantifier;
+  const bool d_fullEffort;
+  const size_t d_variableCount;
+  std::vector<TypeNode> d_typeCache;
+  std::vector<size_t> d_termsSizes;
+  std::vector<size_t> d_termIndex;
+  uint32_t d_stepCounter;
+  size_t d_stage;
+  size_t d_stageCount;
+  bool d_hasNext;
+  /* Instantiate current combination */
+  bool instantiate();
+  /* Allow larger indices from now on */
+  bool increaseStage();
+  /* Move on in the current stage */
+  bool nextCombination();
+  /**
+   *  Set up terms for  given variable.
+   */
+  virtual size_t prepareTerms(size_t child_ix) = 0;
+  /**
+   *  Get a given term for a given variable.
+   */
+  virtual Node getTerm(size_t child_ix,
+                       size_t term_index) CVC4_WARN_UNUSED_RESULT = 0;
+};
+
+class TermTupleEnumeratorBasic : public TermTupleEnumeratorBase
+{
+ public:
+  TermTupleEnumeratorBasic(QuantifiersEngine* qe,
+                           Node quantifier,
+                           bool fullEffort)
+      : TermTupleEnumeratorBase(qe, quantifier, fullEffort)
+  {
+  }
+  virtual ~TermTupleEnumeratorBasic() = default;
+
+ protected:
+  std::map<TypeNode, std::vector<Node> > d_term_db_list;
+  virtual size_t prepareTerms(size_t child_ix) override;
+  virtual Node getTerm(size_t child_ix, size_t term_index) override;
+};
+
+class TermTupleEnumeratorRD : public TermTupleEnumeratorBase
+{
+ public:
+  TermTupleEnumeratorRD(QuantifiersEngine* qe,
+                        Node quantifier,
+                        bool fullEffort,
+                        RelevantDomain* rd)
+      : TermTupleEnumeratorBase(qe, quantifier, fullEffort), d_rd(rd)
+  {
+  }
+  virtual ~TermTupleEnumeratorRD() = default;
+
+ protected:
+  RelevantDomain* const d_rd;
+  virtual size_t prepareTerms(size_t child_ix) override
+  {
+    return d_rd->getRDomain(d_quantifier, child_ix)->d_terms.size();
+  }
+  virtual Node getTerm(size_t child_ix, size_t term_index) override
+  {
+    return d_rd->getRDomain(d_quantifier, child_ix)->d_terms[term_index];
+  }
+};
+
+TermTupleEnumeratorInterface* mkTermTupleEnumerator(QuantifiersEngine* qe,
+                                                    Node quantifier,
+                                                    bool fullEffort,
+                                                    bool isRd,
+                                                    RelevantDomain* rd)
+{
+  return isRd ? static_cast<TermTupleEnumeratorInterface*>(
+             new TermTupleEnumeratorRD(qe, quantifier, fullEffort, rd))
+              : static_cast<TermTupleEnumeratorInterface*>(
+                  new TermTupleEnumeratorBasic(qe, quantifier, fullEffort));
 }
 
 void TermTupleEnumeratorBase::init()
 {
   d_stage = 0;
   d_hasNext = true;
-  d_stageCount = 1; // in the case of full effort we do at least one stage
+  d_stageCount = 1;  // in the case of full effort we do at least one stage
 
   // ignore if constant true (rare case of non-standard quantifier whose body is
   // rewritten to true)
@@ -127,10 +154,10 @@ void TermTupleEnumeratorBase::init()
     d_termsSizes.push_back(terms_size);
     d_stageCount = std::max(d_stageCount, terms_size);
   }
-  Trace("inst-alg-rd") << "Will do " << d_stageCount << " stages of instantiation." << std::endl;
+  Trace("inst-alg-rd") << "Will do " << d_stageCount
+                       << " stages of instantiation." << std::endl;
   d_termIndex.resize(d_variableCount, 0);
 }
-
 
 bool TermTupleEnumeratorBase::next()
 {
@@ -145,14 +172,14 @@ bool TermTupleEnumeratorBase::next()
       // no more combinations in the current stage
       if (!increaseStage())
       {
-        //we ran out of stages
+        // we ran out of stages
         d_hasNext = false;
         return false;
       }
     }
   }
   else
-  { //TODO: any way of avoiding this special if?
+  {  // TODO: any way of avoiding this special if?
     Assert(d_stage == 0);
     Trace("inst-alg-rd") << "Try stage " << d_stage << "..." << std::endl;
   }
@@ -179,7 +206,7 @@ bool TermTupleEnumeratorBase::increaseStage()
     if (d_termsSizes[digit] > d_stage)
     {
       found = true;
-      d_termIndex[digit]  = d_stage;
+      d_termIndex[digit] = d_stage;
     }
   }
   Assert(found);
@@ -217,11 +244,14 @@ bool TermTupleEnumeratorBase::instantiate()
   terms.clear();
   for (size_t child_ix = 0; child_ix < d_variableCount; child_ix++)
   {
-    const Node t = d_termsSizes[child_ix] == 0 ? Node::null() : getTerm(child_ix, d_termIndex[child_ix]);
+    const Node t = d_termsSizes[child_ix] == 0
+                       ? Node::null()
+                       : getTerm(child_ix, d_termIndex[child_ix]);
     terms.push_back(t);
     Trace("inst-alg-rd") << "  " << t << std::endl;
     Assert(terms[child_ix].isNull()
-        || terms[child_ix].getType().isComparableTo(d_quantifier[0][child_ix].getType()));
+           || terms[child_ix].getType().isComparableTo(
+               d_quantifier[0][child_ix].getType()));
   }
 
   Instantiate* const ie = d_quantEngine->getInstantiate();
@@ -258,8 +288,8 @@ size_t TermTupleEnumeratorBasic::prepareTerms(size_t child_ix)
       }
     }
   }
-  Trace("inst-alg-rd") << "Instantiation Terms for child " << child_ix
-    << ": " << d_term_db_list[type_node] << std::endl;
+  Trace("inst-alg-rd") << "Instantiation Terms for child " << child_ix << ": "
+                       << d_term_db_list[type_node] << std::endl;
   return d_term_db_list[type_node].size();
 }
 
@@ -270,6 +300,6 @@ Node TermTupleEnumeratorBasic::getTerm(size_t child_ix, size_t term_index)
   return d_term_db_list[type_node][term_index];
 }
 
-} /* CVC4::theory::quantifiers namespace */
-} /* CVC4::theory namespace */
-} /* CVC4 namespace */
+}  // namespace quantifiers
+}  // namespace theory
+}  // namespace CVC4
