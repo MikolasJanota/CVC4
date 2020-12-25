@@ -171,14 +171,25 @@ void InstStrategyEnum::check(Theory::Effort e, QEffort quant_e)
   }
 }
 
-bool InstStrategyEnum::process(Node f, bool fullEffort, bool isRd)
+bool InstStrategyEnum::process(Node quantifier, bool fullEffort, bool isRd)
 {
   std::unique_ptr<TermTupleEnumeratorInterface> enumerator(
-      mkTermTupleEnumerator(d_quantEngine, f, fullEffort, isRd, d_rd));
+      mkTermTupleEnumerator(d_quantEngine, quantifier, fullEffort, isRd, d_rd));
+  std::vector<Node> terms;
+  Instantiate* const ie = d_quantEngine->getInstantiate();
   for (enumerator->init(); enumerator->hasNext();)
   {
-    if (enumerator->next())
+    if (d_quantEngine->inConflict())
     {
+      // could be conflicting for an internal reason
+      return false;
+    }
+    enumerator->next(terms);
+    // try instantiation
+    if (ie->addInstantiation(quantifier, terms))
+    {
+      Trace("inst-alg-rd") << "Success!" << std::endl;
+      ++(d_quantEngine->d_statistics.d_instantiations_guess);
       return true;
     }
   }
