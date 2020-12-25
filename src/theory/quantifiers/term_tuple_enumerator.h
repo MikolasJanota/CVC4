@@ -16,7 +16,7 @@ class TermTupleEnumeratorInterface
  public:
   virtual void init() = 0;
   virtual bool hasNext() = 0;
-  virtual bool next() = 0;
+  virtual void next(/*out*/ std::vector<Node>& terms) = 0;
   virtual ~TermTupleEnumeratorInterface() = default;
 };
 

@@ -39,8 +39,8 @@ class TermTupleEnumeratorBase : public TermTupleEnumeratorInterface
   }
   virtual ~TermTupleEnumeratorBase() = default;
   virtual void init() override;
-  virtual bool hasNext() override { return d_hasNext; }
-  virtual bool next() override;
+  virtual bool hasNext() override;
+  virtual void next(/*out*/ std::vector<Node>& terms) override;
 
  protected:
   QuantifiersEngine* const d_quantEngine;
@@ -54,8 +54,6 @@ class TermTupleEnumeratorBase : public TermTupleEnumeratorInterface
   size_t d_stage;
   size_t d_stageCount;
   bool d_hasNext;
-  /* Instantiate current combination */
-  bool instantiate();
   /* Allow larger indices from now on */
   bool increaseStage();
   /* Move on in the current stage */
@@ -159,33 +157,45 @@ void TermTupleEnumeratorBase::init()
   d_termIndex.resize(d_variableCount, 0);
 }
 
-bool TermTupleEnumeratorBase::next()
+bool TermTupleEnumeratorBase::hasNext()
 {
   if (!d_hasNext)
   {
     return false;
   }
-  if (d_stepCounter > 0)
-  {
-    if (!nextCombination())
-    {
-      // no more combinations in the current stage
-      if (!increaseStage())
-      {
-        // we ran out of stages
-        d_hasNext = false;
-        return false;
-      }
-    }
-  }
-  else
-  {  // TODO: any way of avoiding this special if?
+
+  if (d_stepCounter++ == 0)
+  {  // TODO: (nice) any way of avoiding this special if?
     Assert(d_stage == 0);
     Trace("inst-alg-rd") << "Try stage " << d_stage << "..." << std::endl;
+    return true;
   }
 
-  d_stepCounter++;
-  return instantiate();
+  // try to find the next combination in the current state or increase stage
+  if (nextCombination() || increaseStage())
+  {
+    return true;
+  }
+
+  // we ran out of stages
+  return d_hasNext = false;        
+}
+
+void TermTupleEnumeratorBase::next(/*out*/ std::vector<Node>& terms)
+{
+  Trace("inst-alg-rd") << "Try instantiation: " << d_termIndex << std::endl;
+  terms.resize(d_variableCount);
+  for (size_t child_ix = 0; child_ix < d_variableCount; child_ix++)
+  {
+    const Node t = d_termsSizes[child_ix] == 0
+                       ? Node::null()
+                       : getTerm(child_ix, d_termIndex[child_ix]);
+    terms[child_ix] = t;
+    Trace("inst-alg-rd") << "  " << t << std::endl;
+    Assert(terms[child_ix].isNull()
+           || terms[child_ix].getType().isComparableTo(
+               d_quantifier[0][child_ix].getType()));
+  }
 }
 
 bool TermTupleEnumeratorBase::increaseStage()
@@ -225,41 +235,6 @@ bool TermTupleEnumeratorBase::nextCombination()
       std::fill(d_termIndex.begin() + digit + 1, d_termIndex.end(), 0);
       return true;
     }
-  }
-  return false;
-}
-
-bool TermTupleEnumeratorBase::instantiate()
-{
-  if (d_quantEngine->inConflict())
-  {
-    // could be conflicting for an internal reason (such as term
-    // indices computed in above calls)
-    return false;
-  }
-  // try instantiation
-  std::vector<Node> terms;
-  terms.reserve(d_variableCount);
-  Trace("inst-alg-rd") << "Try instantiation: " << d_termIndex << std::endl;
-  terms.clear();
-  for (size_t child_ix = 0; child_ix < d_variableCount; child_ix++)
-  {
-    const Node t = d_termsSizes[child_ix] == 0
-                       ? Node::null()
-                       : getTerm(child_ix, d_termIndex[child_ix]);
-    terms.push_back(t);
-    Trace("inst-alg-rd") << "  " << t << std::endl;
-    Assert(terms[child_ix].isNull()
-           || terms[child_ix].getType().isComparableTo(
-               d_quantifier[0][child_ix].getType()));
-  }
-
-  Instantiate* const ie = d_quantEngine->getInstantiate();
-  if (ie->addInstantiation(d_quantifier, terms))
-  {
-    Trace("inst-alg-rd") << "Success!" << std::endl;
-    ++(d_quantEngine->d_statistics.d_instantiations_guess);
-    return true;
   }
   return false;
 }
