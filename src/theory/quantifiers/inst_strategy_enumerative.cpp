@@ -22,6 +22,8 @@
 #include "theory/quantifiers/term_tuple_enumerator.h"
 #include "theory/quantifiers_engine.h"
 
+#include "theory/quantifiers/quantifier_logger.h"
+
 namespace CVC4 {
 
 using namespace kind;
@@ -36,6 +38,8 @@ namespace quantifiers {
 InstStrategyEnum::InstStrategyEnum(QuantifiersEngine* qe, RelevantDomain* rd)
     : QuantifiersModule(qe), d_rd(rd), d_fullSaturateLimit(-1)
 {
+  QuantifierLogger::s_logger.setQuantifierEngine(qe);
+
 }
 void InstStrategyEnum::presolve()
 {
@@ -169,6 +173,7 @@ void InstStrategyEnum::check(Theory::Effort e, QEffort quant_e)
   {
     d_fullSaturateLimit--;
   }
+  
 }
 
 bool InstStrategyEnum::process(Node quantifier, bool fullEffort, bool isRd)

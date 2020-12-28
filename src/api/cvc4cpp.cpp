@@ -62,6 +62,7 @@
 #include "util/random.h"
 #include "util/result.h"
 #include "util/utility.h"
+#include "theory/quantifiers/quantifier_logger.h"
 
 namespace CVC4 {
 namespace api {
@@ -5491,6 +5492,8 @@ void Solver::printInstantiations(std::ostream& out) const
   CVC4_API_SOLVER_TRY_CATCH_BEGIN;
   CVC4::ExprManagerScope exmgrs(*(d_exprMgr.get()));
   d_smtEngine->printInstantiations(out);
+  theory::quantifiers::QuantifierLogger::s_logger.print(std::cout);
+  theory::quantifiers::QuantifierLogger::s_logger.clear();
   CVC4_API_SOLVER_TRY_CATCH_END;
 }
 

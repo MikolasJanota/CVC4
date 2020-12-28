@@ -732,6 +732,8 @@ libcvc4_add_sources(
   theory/quantifiers/quant_split.h
   theory/quantifiers/quant_util.cpp
   theory/quantifiers/quant_util.h
+  theory/quantifiers/quantifier_logger.cpp
+  theory/quantifiers/quantifier_logger.h
   theory/quantifiers/quantifiers_attributes.cpp
   theory/quantifiers/quantifiers_attributes.h
   theory/quantifiers/quantifiers_modules.cpp

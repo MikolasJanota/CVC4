@@ -10,6 +10,7 @@
 #include <iterator>
 
 #include "base/map_util.h"
+#include "theory/quantifiers/quantifier_logger.h"
 
 namespace CVC4 {
 
@@ -138,11 +139,17 @@ void TermTupleEnumeratorBase::init()
 
   // prepare a sequence of terms for each quantified variable
   // additionally initialized the cache for variable types
-  for (size_t i = 0; i < d_variableCount; i++)
+  for (size_t child_ix = 0; child_ix < d_variableCount; child_ix++)
   {
-    d_typeCache.push_back(d_quantifier[0][i].getType());
-    const size_t terms_size = prepareTerms(i);
-    Trace("inst-alg-rd") << "Variable " << i << " has " << terms_size
+    d_typeCache.push_back(d_quantifier[0][child_ix].getType());
+    const size_t terms_size = prepareTerms(child_ix);
+    for (size_t term_ix = 0; term_ix < terms_size; term_ix++)
+    {
+      QuantifierLogger::s_logger.registerCandidate(d_quantifier,
+      child_ix, getTerm(child_ix, term_ix));
+
+    }
+    Trace("inst-alg-rd") << "Variable " << child_ix << " has " << terms_size
                          << " in relevant domain." << std::endl;
     if (terms_size == 0 && !d_fullEffort)
     {
