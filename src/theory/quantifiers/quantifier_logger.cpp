@@ -4,10 +4,11 @@
  * Created on:  Fri Dec 25 14:39:45 CET 2020
  * Copyright (C) 2020, Mikolas Janota
  */
+#include "theory/quantifiers/quantifier_logger.h"
+
 #include <set>
 
 #include "base/map_util.h"
-#include "theory/quantifiers/quantifier_logger.h"
 
 namespace CVC4 {
 namespace theory {
@@ -27,8 +28,8 @@ std::ostream& QuantifierLogger::print(std::ostream& out)
   {
     const auto& quantifier = entry.first;
 
-    Node name;
-    d_qe->getNameForQuant(quantifier, name, false);
+    Node name = quantifier;
+    // d_qe->getNameForQuant(quantifier, name, false);
     const auto& ages = entry.second.d_age;
     out << "(candidates " << name << " " << std::endl;
     for (size_t index = 0; index < ages.size(); index++)
@@ -51,7 +52,8 @@ std::ostream& QuantifierLogger::print(std::ostream& out)
   {
     out << "(candidate_info " << term << " " << std::endl;
     out << "   (depth " << te.getTermDepth(term) << ") ";
-    //out << "   (containsUninterpretedConstant "  << te.containsUninterpretedConstant(term) << ") ";
+    // out << "   (containsUninterpretedConstant "  <<
+    // te.containsUninterpretedConstant(term) << ") ";
     out << ")" << std::endl;
   }
   out << ")" << std::endl;

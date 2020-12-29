@@ -6,8 +6,8 @@
  */
 #ifndef QUANTIFIER_LOGGER_H_15196
 #define QUANTIFIER_LOGGER_H_15196
-#include <map>
 #include <fstream>
+#include <map>
 
 #include "theory/quantifiers_engine.h"
 
@@ -25,16 +25,22 @@ class QuantifierLogger
  public:
   static QuantifierLogger s_logger;
 
-  void clear(){d_infos.clear();}
-  virtual ~QuantifierLogger() {clear();}
-  void setQuantifierEngine (QuantifiersEngine*qe ){d_qe = qe;}
+  void clear()
+  {
+    std::cout << "clearing logger\n";
+    d_infos.clear();
+  }
+  virtual ~QuantifierLogger() { clear(); }
+  void setQuantifierEngine(QuantifiersEngine* qe) { d_qe = qe; }
+  void setSmtEngine(SmtEngine* e) { d_e = e; }
   bool registerCandidate(Node quantifier, size_t child_ix, Node candidate);
   std::ostream& print(std::ostream& out);
 
  protected:
   std::map<Node, QuantifierInfo> d_infos;
-  QuantifiersEngine*d_qe;
-  QuantifierLogger(): d_qe(nullptr) {}
+  QuantifiersEngine* d_qe;
+  SmtEngine* d_e;
+  QuantifierLogger() : d_qe(nullptr) {}
 };
 
 }  // namespace quantifiers
