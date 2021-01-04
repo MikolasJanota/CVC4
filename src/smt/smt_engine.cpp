@@ -68,6 +68,8 @@
 #include "base/configuration.h"
 #include "base/configuration_private.h"
 
+#include "theory/quantifiers/quantifier_logger.h"
+
 using namespace std;
 using namespace CVC4::smt;
 using namespace CVC4::preprocessing;
@@ -1630,6 +1632,7 @@ void SmtEngine::printInstantiations( std::ostream& out ) {
     {
       Assert(options::printInstMode() == options::PrintInstMode::LIST);
       InstantiationList ilist(name, i.second);
+      quantifiers::QuantifierLogger::s_logger.registerUseful(ilist);
       out << ilist;
     }
     printed = true;
