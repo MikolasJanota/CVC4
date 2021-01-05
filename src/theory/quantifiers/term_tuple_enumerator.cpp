@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <iterator>
+#include <set>
 
 #include "base/map_util.h"
 #include "theory/quantifiers/quantifier_logger.h"
@@ -30,12 +31,14 @@ class TermTupleEnumeratorBase : public TermTupleEnumeratorInterface
  public:
   TermTupleEnumeratorBase(QuantifiersEngine* qe,
                           Node quantifier,
-                          bool fullEffort)
+                          bool fullEffort,
+                          RelevantDomain* rd)
       : d_quantEngine(qe),
         d_quantifier(quantifier),
         d_fullEffort(fullEffort),
         d_variableCount(d_quantifier[0].getNumChildren()),
-        d_stepCounter(0)
+        d_stepCounter(0),
+        d_rd(rd)
   {
   }
   virtual ~TermTupleEnumeratorBase() = default;
@@ -55,6 +58,7 @@ class TermTupleEnumeratorBase : public TermTupleEnumeratorInterface
   size_t d_stage;
   size_t d_stageCount;
   bool d_hasNext;
+  RelevantDomain* const d_rd;
   /* Allow larger indices from now on */
   bool increaseStage();
   /* Move on in the current stage */
@@ -75,8 +79,9 @@ class TermTupleEnumeratorBasic : public TermTupleEnumeratorBase
  public:
   TermTupleEnumeratorBasic(QuantifiersEngine* qe,
                            Node quantifier,
-                           bool fullEffort)
-      : TermTupleEnumeratorBase(qe, quantifier, fullEffort)
+                           bool fullEffort,
+                           RelevantDomain* rd)
+      : TermTupleEnumeratorBase(qe, quantifier, fullEffort, rd)
   {
   }
   virtual ~TermTupleEnumeratorBasic() = default;
@@ -94,13 +99,12 @@ class TermTupleEnumeratorRD : public TermTupleEnumeratorBase
                         Node quantifier,
                         bool fullEffort,
                         RelevantDomain* rd)
-      : TermTupleEnumeratorBase(qe, quantifier, fullEffort), d_rd(rd)
+      : TermTupleEnumeratorBase(qe, quantifier, fullEffort, rd)
   {
   }
   virtual ~TermTupleEnumeratorRD() = default;
 
  protected:
-  RelevantDomain* const d_rd;
   virtual size_t prepareTerms(size_t child_ix) override
   {
     return d_rd->getRDomain(d_quantifier, child_ix)->d_terms.size();
@@ -120,7 +124,7 @@ TermTupleEnumeratorInterface* mkTermTupleEnumerator(QuantifiersEngine* qe,
   return isRd ? static_cast<TermTupleEnumeratorInterface*>(
              new TermTupleEnumeratorRD(qe, quantifier, fullEffort, rd))
               : static_cast<TermTupleEnumeratorInterface*>(
-                  new TermTupleEnumeratorBasic(qe, quantifier, fullEffort));
+                  new TermTupleEnumeratorBasic(qe, quantifier, fullEffort, rd));
 }
 
 void TermTupleEnumeratorBase::init()
@@ -137,17 +141,27 @@ void TermTupleEnumeratorBase::init()
     return;
   }
 
+  bool anyTerms = false;
   // prepare a sequence of terms for each quantified variable
   // additionally initialized the cache for variable types
   for (size_t child_ix = 0; child_ix < d_variableCount; child_ix++)
   {
     d_typeCache.push_back(d_quantifier[0][child_ix].getType());
     const size_t terms_size = prepareTerms(child_ix);
+    const auto& relevantTermVector =
+        d_rd->getRDomain(d_quantifier, child_ix)->d_terms;
+    std::set<Node> relevant(relevantTermVector.begin(),
+                            relevantTermVector.end());
+
     for (size_t term_ix = 0; term_ix < terms_size; term_ix++)
     {
-      QuantifierLogger::s_logger.registerCandidate(d_quantifier,
-      child_ix, getTerm(child_ix, term_ix));
-
+      const auto term = getTerm(child_ix, term_ix);
+      anyTerms = QuantifierLogger::s_logger.registerCandidate(
+                     d_quantifier,
+                     child_ix,
+                     term,
+                     relevant.find(term) != relevant.end())
+                 || anyTerms;
     }
     Trace("inst-alg-rd") << "Variable " << child_ix << " has " << terms_size
                          << " in relevant domain." << std::endl;
@@ -162,6 +176,10 @@ void TermTupleEnumeratorBase::init()
   Trace("inst-alg-rd") << "Will do " << d_stageCount
                        << " stages of instantiation." << std::endl;
   d_termIndex.resize(d_variableCount, 0);
+  if (anyTerms)
+  {
+    QuantifierLogger::s_logger.increasePhase(d_quantifier);
+  }
 }
 
 bool TermTupleEnumeratorBase::hasNext()
@@ -185,7 +203,7 @@ bool TermTupleEnumeratorBase::hasNext()
   }
 
   // we ran out of stages
-  return d_hasNext = false;        
+  return d_hasNext = false;
 }
 
 void TermTupleEnumeratorBase::next(/*out*/ std::vector<Node>& terms)

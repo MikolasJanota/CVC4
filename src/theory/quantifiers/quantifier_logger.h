@@ -10,17 +10,25 @@
 #include <map>
 #include <set>
 
-#include "theory/quantifiers_engine.h"
+#include "base/map_util.h"
 #include "theory/quantifiers/instantiation_list.h"
+#include "theory/quantifiers_engine.h"
 
 namespace CVC4 {
 namespace theory {
 namespace quantifiers {
 
+struct CandidateInfo
+{
+  size_t d_age, d_phase;
+  bool d_relevant;
+};
+
 struct QuantifierInfo
 {
-  std::vector<std::map<Node, size_t> > d_age;
-  std::vector<std::vector<Node >> d_useful;
+  std::vector<std::map<Node, CandidateInfo>> d_infos;
+  std::vector<std::vector<Node>> d_useful;
+  size_t d_currentPhase;
 };
 
 class QuantifierLogger
@@ -28,17 +36,29 @@ class QuantifierLogger
  public:
   static QuantifierLogger s_logger;
 
-  void clear()
-  {
-    d_infos.clear();
-  }
+  void clear() { d_infos.clear(); }
   virtual ~QuantifierLogger() { clear(); }
   void setQuantifierEngine(QuantifiersEngine* qe) { d_qe = qe; }
   void setSmtEngine(SmtEngine* e) { d_e = e; }
-  bool registerCandidate(Node quantifier, size_t child_ix, Node candidate);
+  bool registerCandidate(Node quantifier,
+                         size_t child_ix,
+                         Node candidate,
+                         bool relevant);
   std::ostream& print(std::ostream& out);
 
   void registerUseful(const InstantiationList& instantiations);
+  void increasePhase(Node quantifier)
+  {
+    if (!ContainsKey(d_infos, quantifier))
+    {
+      d_infos[quantifier].d_infos.resize(quantifier[0].getNumChildren());
+      d_infos[quantifier].d_currentPhase = 1;
+    }
+    else
+    {
+      d_infos[quantifier].d_currentPhase++;
+    }
+  }
 
  protected:
   std::map<Node, QuantifierInfo> d_infos;

@@ -4,11 +4,12 @@
  * Created on:  Fri Dec 25 14:39:45 CET 2020
  * Copyright (C) 2020, Mikolas Janota
  */
+#include "theory/quantifiers/quantifier_logger.h"
+
 #include <iostream>
 #include <set>
 
 #include "base/map_util.h"
-#include "theory/quantifiers/quantifier_logger.h"
 
 namespace CVC4 {
 namespace theory {
@@ -48,15 +49,19 @@ std::ostream& QuantifierLogger::print(std::ostream& out)
     Node name = quantifier;
 
     // d_qe->getNameForQuant(quantifier, name, false);
-    const auto& ages = entry.second.d_age;
+    const auto& infos = entry.second.d_infos;
     out << "(candidates " << name << " " << std::endl;
-    for (size_t index = 0; index < ages.size(); index++)
+    for (size_t index = 0; index < infos.size(); index++)
     {
-      out << "(variable " << index << " ";
-      for (const auto& term_index : ages[index])
+      out << "(variable " << index;
+      for (const auto& term_index : infos[index])
       {
         all_candidates.insert(term_index.first);
-        out << "(age " << term_index.first << " " << term_index.second << ") ";
+        out << " (candidate " << term_index.first;
+        out << " (age " << term_index.second.d_age << ")";
+        out << " (phase " << term_index.second.d_phase << ")";
+        out << " (relevant " << term_index.second.d_relevant << ")";
+        out << ")";
       }
       out << ")" << std::endl;
     }
@@ -97,18 +102,22 @@ std::ostream& QuantifierLogger::print(std::ostream& out)
 
 bool QuantifierLogger::registerCandidate(Node quantifier,
                                          size_t child_ix,
-                                         Node candidate)
+                                         Node candidate,
+                                         bool relevant)
 {
   if (!ContainsKey(d_infos, quantifier))
   {
-    d_infos[quantifier].d_age.resize(quantifier[0].getNumChildren());
+    d_infos[quantifier].d_infos.resize(quantifier[0].getNumChildren());
+    d_infos[quantifier].d_currentPhase = 0;
   }
-  std::map<Node, size_t>& candidates = d_infos[quantifier].d_age[child_ix];
+  auto& candidates = d_infos[quantifier].d_infos[child_ix];
   if (ContainsKey(candidates, candidate))
   {
     return false;
   }
-  candidates[candidate] = candidates.size();
+  candidates[candidate].d_age = candidates.size();
+  candidates[candidate].d_phase = d_infos[quantifier].d_currentPhase;
+  candidates[candidate].d_relevant = relevant;
   return true;
 }
 
