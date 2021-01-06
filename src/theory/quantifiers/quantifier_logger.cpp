@@ -4,12 +4,11 @@
  * Created on:  Fri Dec 25 14:39:45 CET 2020
  * Copyright (C) 2020, Mikolas Janota
  */
-#include "theory/quantifiers/quantifier_logger.h"
-
 #include <iostream>
 #include <set>
 
 #include "base/map_util.h"
+#include "theory/quantifiers/quantifier_logger.h"
 
 namespace CVC4 {
 namespace theory {
@@ -18,17 +17,19 @@ QuantifierLogger QuantifierLogger::s_logger;
 
 void QuantifierLogger::registerUseful(const InstantiationList& instantiations)
 {
-  const auto i = d_infos.find(instantiations.d_quant);
+  const auto quantifier = instantiations.d_quant;
+  auto i = d_infos.find(quantifier);
   if (i == d_infos.end())
   {
-    std::cerr << "Warning unregistered quantifier:" << instantiations.d_quant
-              << std::endl;
-    return;
+    std::cerr << "Warning unregistered quantifier:" << quantifier << std::endl;
+    d_infos[quantifier].d_infos.resize(quantifier[0].getNumChildren());
+    d_infos[quantifier].d_currentPhase = 0;
+    i = d_infos.find(quantifier);
+    Assert(i != d_infos.end());
   }
-  for (const auto& instantiation : instantiations.d_inst)
-  {
-    i->second.d_useful.push_back(instantiation);
-  }
+  i->second.d_useful.insert(i->second.d_useful.end(),
+                            instantiations.d_inst.begin(),
+                            instantiations.d_inst.end());
 }
 
 std::ostream& QuantifierLogger::print(std::ostream& out)
@@ -73,6 +74,7 @@ std::ostream& QuantifierLogger::print(std::ostream& out)
       for (const auto& term : instantiation)
       {
         useful_terms.insert(term);
+        all_candidates.insert(term);
         out << term << " ";
       }
       out << ") " << std::endl;

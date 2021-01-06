@@ -54,6 +54,8 @@
 #include "theory/uf/equality_engine.h"
 #include "util/resource_manager.h"
 
+#include "theory/quantifiers/quantifier_logger.h"
+
 using namespace std;
 
 using namespace CVC4::preprocessing;
@@ -171,6 +173,7 @@ void TheoryEngine::finishInit()
   {
     // initialize the quantifiers engine
     d_quantEngine = new QuantifiersEngine(this, *d_decManager.get(), d_pnm);
+    quantifiers::QuantifierLogger::s_logger.setQuantifierEngine(d_quantEngine);
   }
   // initialize the theory combination manager, which decides and allocates the
   // equality engines to use for all theories.
@@ -823,6 +826,8 @@ void TheoryEngine::shutdown() {
       theoryOf(theoryId)->shutdown();
     }
   }
+
+  quantifiers::QuantifierLogger::s_logger.clear();
 }
 
 theory::Theory::PPAssertStatus TheoryEngine::solve(
