@@ -4,14 +4,14 @@
  * Created on:  Fri Dec 18 14:26:58 CET 2020
  * Copyright (C) 2020, Mikolas Janota
  */
-#include "theory/quantifiers/term_tuple_enumerator.h"
-
 #include <algorithm>
 #include <iterator>
+#include <random>
 #include <set>
 
 #include "base/map_util.h"
 #include "theory/quantifiers/quantifier_logger.h"
+#include "theory/quantifiers/term_tuple_enumerator.h"
 
 namespace CVC4 {
 
@@ -38,7 +38,8 @@ class TermTupleEnumeratorBase : public TermTupleEnumeratorInterface
         d_fullEffort(fullEffort),
         d_variableCount(d_quantifier[0].getNumChildren()),
         d_stepCounter(0),
-        d_rd(rd)
+        d_rd(rd),
+        d_mt(0)
   {
   }
   virtual ~TermTupleEnumeratorBase() = default;
@@ -59,6 +60,7 @@ class TermTupleEnumeratorBase : public TermTupleEnumeratorInterface
   size_t d_stageCount;
   bool d_hasNext;
   RelevantDomain* const d_rd;
+  std::mt19937 d_mt;
   /* Allow larger indices from now on */
   bool increaseStage();
   /* Move on in the current stage */
@@ -72,6 +74,25 @@ class TermTupleEnumeratorBase : public TermTupleEnumeratorInterface
    */
   virtual Node getTerm(size_t child_ix,
                        size_t term_index) CVC4_WARN_UNUSED_RESULT = 0;
+
+  virtual Node getTermRnd(size_t child_ix,
+                          size_t term_index) CVC4_WARN_UNUSED_RESULT
+  {
+    Assert(term_index < d_termsSizes[child_ix]);
+    const int prob = options::fullSaturateRandomize();
+    size_t retrieve = term_index;
+    if (prob != 0)
+    {
+      std::uniform_int_distribution<> pd(0, 100);
+      if (pd(d_mt) < prob)
+      {
+        std::uniform_int_distribution<size_t> xpd(0,
+                                                  d_termsSizes[child_ix] - 1);
+        retrieve = xpd(d_mt);
+      }
+    }
+    return getTerm(child_ix, retrieve);
+  }
 };
 
 class TermTupleEnumeratorBasic : public TermTupleEnumeratorBase
@@ -133,8 +154,8 @@ void TermTupleEnumeratorBase::init()
   d_hasNext = true;
   d_stageCount = 1;  // in the case of full effort we do at least one stage
 
-  // ignore if constant true (rare case of non-standard quantifier whose body is
-  // rewritten to true)
+  // ignore if constant true (rare case of non-standard quantifier whose body
+  // is rewritten to true)
   if (d_quantifier[1].isConst() && d_quantifier[1].getConst<bool>())
   {
     d_hasNext = false;
@@ -214,7 +235,7 @@ void TermTupleEnumeratorBase::next(/*out*/ std::vector<Node>& terms)
   {
     const Node t = d_termsSizes[child_ix] == 0
                        ? Node::null()
-                       : getTerm(child_ix, d_termIndex[child_ix]);
+                       : getTermRnd(child_ix, d_termIndex[child_ix]);
     terms[child_ix] = t;
     Trace("inst-alg-rd") << "  " << t << std::endl;
     Assert(terms[child_ix].isNull()

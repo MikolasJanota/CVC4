@@ -547,6 +547,15 @@ header = "options/quantifiers_options.h"
   help       = "interleave enumerative instantiation with other techniques"
 
 [[option]]
+  name       = "fullSaturateRandomize"
+  category   = "regular"
+  long       = "fs-randomize=N"
+  type       = "int"
+  default    = "0"
+  read_only  = true
+  help       = "randomize term selection with probability p in 0..100"
+
+[[option]]
   name       = "fullSaturateStratify"
   category   = "regular"
   long       = "fs-stratify"
