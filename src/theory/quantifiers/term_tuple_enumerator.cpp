@@ -80,16 +80,17 @@ class TermTupleEnumeratorBase : public TermTupleEnumeratorInterface
   {
     Assert(term_index < d_termsSizes[child_ix]);
     const int prob = options::fullSaturateRandomize();
+    Assert(0 <= prob && prob <= 100);
     size_t retrieve = term_index;
     if (prob != 0)
     {
-      std::uniform_int_distribution<> pd(0, 100);
-      if (pd(d_mt) < prob)
-      {
-        std::uniform_int_distribution<size_t> xpd(0,
-                                                  d_termsSizes[child_ix] - 1);
-        retrieve = xpd(d_mt);
-      }
+      const auto d = d_termsSizes[child_ix] - term_index;
+      const auto s = static_cast<double>(d) * static_cast<double>(prob) / 100;
+      std::normal_distribution<> nd(0, s);
+      const size_t shift = static_cast<size_t>(std::abs(nd(d_mt)));
+      retrieve = std::min(d_termsSizes[child_ix] - 1, term_index + shift);
+      Trace("inst-alg") <<"Shift:" << shift << " d:" <<d << " s: " << s << std::endl;
+      Trace("inst-alg") << "term shift by " << (retrieve - term_index) << std::endl;
     }
     return getTerm(child_ix, retrieve);
   }
