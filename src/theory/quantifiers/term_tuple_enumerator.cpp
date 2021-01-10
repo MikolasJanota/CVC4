@@ -40,7 +40,7 @@ class TermTupleEnumeratorBase : public TermTupleEnumeratorInterface
         d_stepCounter(0),
         d_rd(rd),
         d_mt(0)
-  {
+  {    
   }
   virtual ~TermTupleEnumeratorBase() = default;
   virtual void init() override;
@@ -75,24 +75,51 @@ class TermTupleEnumeratorBase : public TermTupleEnumeratorInterface
   virtual Node getTerm(size_t child_ix,
                        size_t term_index) CVC4_WARN_UNUSED_RESULT = 0;
 
+  std::vector<std::vector<size_t> > d_permutations;
+  void makePermutations()
+  {
+    d_permutations.resize(d_variableCount);
+    const int probInt = options::fullSaturateRandomize();
+    Assert(0 <= probInt && probInt <= 100);
+    const auto prob = static_cast<double>(probInt) / 100;
+
+    Trace("inst-alg") << "Permutation with parameter " << prob << std::endl;
+
+    for (size_t variableIx = 0; variableIx < d_variableCount; variableIx++)
+    {
+      auto& permutation = d_permutations[variableIx];
+      const auto size = d_termsSizes[variableIx];
+      permutation.resize(size);
+      std::iota(permutation.begin(), permutation.end(), 0);
+      if (prob == 0 || size == 0)
+      {
+        continue;
+      }
+
+      for (size_t termIndex = 0; termIndex < size; termIndex++)
+      {
+        const auto d = size - termIndex;               // how far we can jump
+        const auto s = static_cast<double>(d) * prob;  // standard deviation
+        std::normal_distribution<> nd(0, s);
+        const size_t shift = static_cast<size_t>(std::abs(nd(d_mt)));
+        const auto other = std::min(size - 1, termIndex + shift);
+        std::swap(permutation[termIndex], permutation[other]);
+        Trace("inst-alg") << "Shift:" << shift << " d:" << d << " s: " << s
+                          << std::endl;
+        Trace("inst-alg") << "term shift by " << (other - termIndex)
+                          << std::endl;
+      }
+
+      Trace("inst-alg") << "Permutation for " << variableIx <<" : " << permutation
+                        << std::endl;
+    }
+  }
+
   virtual Node getTermRnd(size_t child_ix,
                           size_t term_index) CVC4_WARN_UNUSED_RESULT
   {
     Assert(term_index < d_termsSizes[child_ix]);
-    const int prob = options::fullSaturateRandomize();
-    Assert(0 <= prob && prob <= 100);
-    size_t retrieve = term_index;
-    if (prob != 0)
-    {
-      const auto d = d_termsSizes[child_ix] - term_index;
-      const auto s = static_cast<double>(d) * static_cast<double>(prob) / 100;
-      std::normal_distribution<> nd(0, s);
-      const size_t shift = static_cast<size_t>(std::abs(nd(d_mt)));
-      retrieve = std::min(d_termsSizes[child_ix] - 1, term_index + shift);
-      Trace("inst-alg") <<"Shift:" << shift << " d:" <<d << " s: " << s << std::endl;
-      Trace("inst-alg") << "term shift by " << (retrieve - term_index) << std::endl;
-    }
-    return getTerm(child_ix, retrieve);
+    return getTerm(child_ix, d_permutations[child_ix][term_index]);
   }
 };
 
@@ -202,6 +229,7 @@ void TermTupleEnumeratorBase::init()
   {
     QuantifierLogger::s_logger.increasePhase(d_quantifier);
   }
+  makePermutations();
 }
 
 bool TermTupleEnumeratorBase::hasNext()
