@@ -40,7 +40,7 @@ class TermTupleEnumeratorBase : public TermTupleEnumeratorInterface
         d_stepCounter(0),
         d_rd(rd),
         d_mt(0)
-  {    
+  {
   }
   virtual ~TermTupleEnumeratorBase() = default;
   virtual void init() override;
@@ -91,13 +91,22 @@ class TermTupleEnumeratorBase : public TermTupleEnumeratorInterface
       const auto size = d_termsSizes[variableIx];
       permutation.resize(size);
       std::iota(permutation.begin(), permutation.end(), 0);
-      if (prob == 0 || size == 0)
+      if (probInt == 0 || size == 0)
       {
         continue;
       }
 
+      std::uniform_int_distribution<> ud(0, 100);
       for (size_t termIndex = 0; termIndex < size; termIndex++)
-      {
+        for (size_t termIndex1 = termIndex + 1; termIndex1 < size; termIndex1++)
+        {
+          if (ud(d_mt) < probInt)
+          {
+            std::swap(permutation[termIndex], permutation[termIndex1]);
+          }
+        }
+
+      /*{
         const auto d = size - termIndex;               // how far we can jump
         const auto s = static_cast<double>(d) * prob;  // standard deviation
         std::normal_distribution<> nd(0, s);
@@ -108,10 +117,10 @@ class TermTupleEnumeratorBase : public TermTupleEnumeratorInterface
                           << std::endl;
         Trace("inst-alg") << "term shift by " << (other - termIndex)
                           << std::endl;
-      }
+      } */
 
-      Trace("inst-alg") << "Permutation for " << variableIx <<" : " << permutation
-                        << std::endl;
+      Trace("inst-alg") << "Permutation for " << variableIx << " : "
+                        << permutation << std::endl;
     }
   }
 
