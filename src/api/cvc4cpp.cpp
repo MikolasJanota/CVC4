@@ -5492,8 +5492,7 @@ void Solver::printInstantiations(std::ostream& out) const
   CVC4_API_SOLVER_TRY_CATCH_BEGIN;
   CVC4::ExprManagerScope exmgrs(*(d_exprMgr.get()));
   d_smtEngine->printInstantiations(out);
-  theory::quantifiers::QuantifierLogger::s_logger.print(std::cout);
-  theory::quantifiers::QuantifierLogger::s_logger.clear();
+  theory::quantifiers::QuantifierLogger::s_logger.print(std::cout);  
   CVC4_API_SOLVER_TRY_CATCH_END;
 }
 

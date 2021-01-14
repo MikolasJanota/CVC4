@@ -32,7 +32,7 @@ void QuantifierLogger::registerUseful(const InstantiationList& instantiations)
                             instantiations.d_inst.end());
 }
 
-std::ostream& QuantifierLogger::print(std::ostream& out)
+std::ostream& QuantifierLogger::printCore(std::ostream &out)
 {
   Assert(d_qe);
   if (!d_qe)

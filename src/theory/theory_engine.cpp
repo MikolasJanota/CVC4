@@ -827,7 +827,7 @@ void TheoryEngine::shutdown() {
     }
   }
 
-  quantifiers::QuantifierLogger::s_logger.clear();
+  //quantifiers::QuantifierLogger::s_logger.clear();
 }
 
 theory::Theory::PPAssertStatus TheoryEngine::solve(

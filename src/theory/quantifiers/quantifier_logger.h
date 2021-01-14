@@ -35,8 +35,7 @@ class QuantifierLogger
 {
  public:
   static QuantifierLogger s_logger;
-
-  void clear() { d_infos.clear(); }
+  
   virtual ~QuantifierLogger() { clear(); }
   void setQuantifierEngine(QuantifiersEngine* qe) { d_qe = qe; }
   void setSmtEngine(SmtEngine* e) { d_e = e; }
@@ -44,7 +43,15 @@ class QuantifierLogger
                          size_t child_ix,
                          Node candidate,
                          bool relevant);
-  std::ostream& print(std::ostream& out);
+  
+  std::ostream& print(std::ostream& out)
+  {
+    printCore(out);
+    clear();
+    return out;
+  }
+
+  std::ostream& printCore(std::ostream& out);
 
   void registerUseful(const InstantiationList& instantiations);
   void increasePhase(Node quantifier)
@@ -65,6 +72,11 @@ class QuantifierLogger
   QuantifiersEngine* d_qe;
   SmtEngine* d_e;
   QuantifierLogger() : d_qe(nullptr) {}
+  void clear()
+  {
+    //std::cout << "clearing logger\n";
+    d_infos.clear();
+  }
 };
 
 }  // namespace quantifiers
