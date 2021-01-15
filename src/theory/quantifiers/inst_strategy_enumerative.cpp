@@ -12,14 +12,13 @@
  ** \brief Implementation of an enumerative instantiation strategy.
  **/
 
-#include "theory/quantifiers/inst_strategy_enumerative.h"
-
 #include "options/quantifiers_options.h"
+#include "theory/quantifiers/inst_strategy_enumerative.h"
 #include "theory/quantifiers/instantiate.h"
 #include "theory/quantifiers/relevant_domain.h"
 #include "theory/quantifiers/term_database.h"
-#include "theory/quantifiers/term_util.h"
 #include "theory/quantifiers/term_tuple_enumerator.h"
+#include "theory/quantifiers/term_util.h"
 #include "theory/quantifiers_engine.h"
 
 namespace CVC4 {
@@ -40,7 +39,13 @@ InstStrategyEnum::InstStrategyEnum(QuantifiersEngine* qe,
                                    RelevantDomain* rd)
     : QuantifiersModule(qs, qim, qr, qe), d_rd(rd), d_fullSaturateLimit(-1)
 {
+  d_tteContext.d_rd = rd;
+  d_tteContext.d_quantEngine = d_quantEngine;
+  d_tteContext.d_ml = (options::lightGBModel.wasSetByUser())
+             ? new LightGBMWrapper(options::lightGBModel().c_str())
+             : nullptr;
 }
+
 void InstStrategyEnum::presolve()
 {
   d_fullSaturateLimit = options::fullSaturateLimit();
@@ -179,7 +184,7 @@ void InstStrategyEnum::check(Theory::Effort e, QEffort quant_e)
 bool InstStrategyEnum::process(Node quantifier, bool fullEffort, bool isRd)
 {
   std::unique_ptr<TermTupleEnumeratorInterface> enumerator(
-      mkTermTupleEnumerator(d_quantEngine, quantifier, fullEffort, isRd, d_rd));
+      mkTermTupleEnumerator(quantifier, fullEffort, isRd, &d_tteContext));
   std::vector<Node> terms;
   Instantiate* const ie = d_quantEngine->getInstantiate();
   for (enumerator->init(); enumerator->hasNext();)
@@ -202,6 +207,6 @@ bool InstStrategyEnum::process(Node quantifier, bool fullEffort, bool isRd)
   // TODO : term enumerator instantiation?
 }
 
-} /* CVC4::theory::quantifiers namespace */
-} /* CVC4::theory namespace */
-} /* CVC4 namespace */
+}  // namespace quantifiers
+}  // namespace theory
+}  // namespace CVC4

@@ -6,8 +6,14 @@
  */
 #ifndef TERM_TUPLE_ENUMERATOR_H_7640
 #define TERM_TUPLE_ENUMERATOR_H_7640
-#include "theory/quantifiers_engine.h"
+#include <cstddef>
+#include <vector>
+
+#include "cvc4_public.h"
+#include "theory/quantifiers/ml.h"
 #include "theory/quantifiers/relevant_domain.h"
+#include "theory/quantifiers_engine.h"
+
 namespace CVC4 {
 namespace theory {
 namespace quantifiers {
@@ -20,13 +26,42 @@ class TermTupleEnumeratorInterface
   virtual ~TermTupleEnumeratorInterface() = default;
 };
 
-TermTupleEnumeratorInterface* mkTermTupleEnumerator(QuantifiersEngine* qe,
-                                                    Node quantifier,
-                                                    bool fullEffort,
-                                                    bool isRd,
-                                                    RelevantDomain* rd);
+struct TermInfo
+{
+  size_t d_age, d_phase;
+  static TermInfo mk(size_t age, size_t phase)
+  {
+    TermInfo rv;
+    rv.d_age = age;
+    rv.d_phase = phase;
+    return rv;
+  }
+};
 
-} /* CVC4::theory::quantifiers namespace */
-} /* CVC4::theory namespace */
-} /* CVC4 namespace */
+struct QuantifierInfo
+{
+  size_t d_currentPhase = 0;
+  std::map<Node, TermInfo> d_termInfos;
+};
+
+struct TermTupleEnumeratorContext
+{
+  QuantifiersEngine* d_quantEngine;
+  RelevantDomain* d_rd;
+  LightGBMWrapper* d_ml;
+  std::map<Node, QuantifierInfo> d_qinfos;
+  size_t increasePhase(Node quantifier);
+  size_t getCurrentPhase(Node quantifier) const;
+  bool addTerm(Node quantifier, Node instantiationTerm, size_t phase);
+};
+
+TermTupleEnumeratorInterface* mkTermTupleEnumerator(
+    Node quantifier,
+    bool fullEffort,
+    bool isRd,
+    TermTupleEnumeratorContext* context);
+
+}  // namespace quantifiers
+}  // namespace theory
+}  // namespace CVC4
 #endif /* TERM_TUPLE_ENUMERATOR_H_7640 */

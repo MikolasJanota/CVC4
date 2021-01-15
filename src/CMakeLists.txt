@@ -714,6 +714,10 @@ libcvc4_add_sources(
   theory/quantifiers/inst_match_trie.h
   theory/quantifiers/inst_strategy_enumerative.cpp
   theory/quantifiers/inst_strategy_enumerative.h
+  theory/quantifiers/ml.cpp
+  theory/quantifiers/ml.h
+  theory/quantifiers/sygus_inst.cpp
+  theory/quantifiers/sygus_inst.h
   theory/quantifiers/instantiate.cpp
   theory/quantifiers/instantiate.h
   theory/quantifiers/instantiation_list.cpp
@@ -1132,6 +1136,10 @@ if(USE_SYMFPU)
   target_include_directories(cvc4
     PUBLIC $<BUILD_INTERFACE:${SymFPU_INCLUDE_DIR}>)
 endif()
+
+target_link_libraries(cvc4 ${LightGBM_LIBRARIES})
+target_include_directories(cvc4 PRIVATE ${LightGBM_INCLUDE_DIR})
+target_link_libraries(cvc4 OpenMP::OpenMP_CXX)
 
 # Note: When linked statically GMP needs to be linked after CLN since CLN
 # depends on GMP.

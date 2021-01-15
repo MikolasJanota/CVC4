@@ -476,6 +476,9 @@ if(USE_ABC)
   add_definitions(-DCVC4_USE_ABC ${ABC_ARCH_FLAGS})
 endif()
 
+find_package(LightGBM REQUIRED)
+find_package(OpenMP REQUIRED)
+
 if(USE_CADICAL)
   find_package(CaDiCaL REQUIRED)
   add_definitions(-DCVC4_USE_CADICAL)
