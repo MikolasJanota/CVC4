@@ -306,7 +306,7 @@ void TermTupleEnumeratorBase::runLearning(size_t variableIx)
   permutation.resize(termCount, 0);
   std::iota(permutation.begin(), permutation.end(), 0);
 
-  if (d_context->d_ml == nullptr)
+  if (d_context->d_ml == nullptr || termCount == 0)
   {
     return;
   }
@@ -348,8 +348,8 @@ void TermTupleEnumeratorBase::runLearning(size_t variableIx)
   for (size_t i = 0; i < permutation.size(); i++)
   {
     Trace("inst-alg-rd") << (i ? ", " : "")
-        // << getTermCore(variableIx, permutation[i])
-                               //<< " : "
+                         // << getTermCore(variableIx, permutation[i])
+                         //<< " : "
                          << getTerm(variableIx, i);
   }
   Trace("inst-alg-rd") << "]" << std::endl;
