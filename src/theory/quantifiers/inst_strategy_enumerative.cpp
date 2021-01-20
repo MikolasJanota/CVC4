@@ -12,17 +12,16 @@
  ** \brief Implementation of an enumerative instantiation strategy.
  **/
 
-#include "theory/quantifiers/inst_strategy_enumerative.h"
-
 #include "options/quantifiers_options.h"
+#include "theory/quantifiers/inst_strategy_enumerative.h"
 #include "theory/quantifiers/instantiate.h"
+#include "theory/quantifiers/quantifier_logger.h"
 #include "theory/quantifiers/relevant_domain.h"
 #include "theory/quantifiers/term_database.h"
-#include "theory/quantifiers/term_util.h"
 #include "theory/quantifiers/term_tuple_enumerator.h"
+#include "theory/quantifiers/term_util.h"
 #include "theory/quantifiers_engine.h"
 
-#include "theory/quantifiers/quantifier_logger.h"
 
 namespace CVC4 {
 
@@ -38,8 +37,7 @@ namespace quantifiers {
 InstStrategyEnum::InstStrategyEnum(QuantifiersEngine* qe, RelevantDomain* rd)
     : QuantifiersModule(qe), d_rd(rd), d_fullSaturateLimit(-1)
 {
-  QuantifierLogger::s_logger.setQuantifierEngine(qe);
-
+  /*QuantifierLogger::s_logger.setQuantifierEngine(qe);*/
 }
 void InstStrategyEnum::presolve()
 {
@@ -173,11 +171,11 @@ void InstStrategyEnum::check(Theory::Effort e, QEffort quant_e)
   {
     d_fullSaturateLimit--;
   }
-  
 }
 
 bool InstStrategyEnum::process(Node quantifier, bool fullEffort, bool isRd)
 {
+  Trace("inst-alg-rd") << "Processing " << quantifier << std::endl;
   std::unique_ptr<TermTupleEnumeratorInterface> enumerator(
       mkTermTupleEnumerator(d_quantEngine, quantifier, fullEffort, isRd, d_rd));
   std::vector<Node> terms;
@@ -195,13 +193,15 @@ bool InstStrategyEnum::process(Node quantifier, bool fullEffort, bool isRd)
     {
       Trace("inst-alg-rd") << "Success!" << std::endl;
       ++(d_quantEngine->d_statistics.d_instantiations_guess);
+      //QuantifierLogger::s_logger.registerInstantiation(quantifier, terms);
       return true;
     }
   }
+  Trace("inst-alg-rd") << "No instantiations" << std::endl;
   return false;
   // TODO : term enumerator instantiation?
 }
 
-} /* CVC4::theory::quantifiers namespace */
-} /* CVC4::theory namespace */
-} /* CVC4 namespace */
+}  // namespace quantifiers
+}  // namespace theory
+}  // namespace CVC4

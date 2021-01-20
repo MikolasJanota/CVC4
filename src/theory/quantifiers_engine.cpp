@@ -1019,6 +1019,7 @@ void QuantifiersEngine::flushLemmas(){
 }
 
 void QuantifiersEngine::getInstantiationTermVectors( Node q, std::vector< std::vector< Node > >& tvecs ) {
+  Assert(d_instantiate);
   d_instantiate->getInstantiationTermVectors(q, tvecs);
 }
 

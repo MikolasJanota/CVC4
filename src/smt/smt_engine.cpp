@@ -1634,6 +1634,7 @@ void SmtEngine::printInstantiations( std::ostream& out ) {
       InstantiationList ilist(name, i.second);
       quantifiers::QuantifierLogger::s_logger.registerUseful(ilist);
       out << ilist;
+      quantifiers::QuantifierLogger::s_logger.registerInstantiations(i.first, qe);
     }
     printed = true;
   }

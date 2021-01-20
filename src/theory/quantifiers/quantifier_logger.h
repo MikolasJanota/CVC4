@@ -28,22 +28,24 @@ struct QuantifierInfo
 {
   std::vector<std::map<Node, CandidateInfo>> d_infos;
   std::vector<std::vector<Node>> d_useful;
-  size_t d_currentPhase;
+  std::vector<std::vector<Node>> d_instantiations;
+  std::set<Node> d_touched;
+  size_t d_currentPhase = 0;
 };
 
 class QuantifierLogger
 {
  public:
   static QuantifierLogger s_logger;
-  
+
   virtual ~QuantifierLogger() { clear(); }
-  void setQuantifierEngine(QuantifiersEngine* qe) { d_qe = qe; }
-  void setSmtEngine(SmtEngine* e) { d_e = e; }
+  /*void setQuantifierEngine(QuantifiersEngine* qe) { d_qe = qe; }
+  void setSmtEngine(SmtEngine* e) { d_e = e; }*/
   bool registerCandidate(Node quantifier,
                          size_t child_ix,
                          Node candidate,
                          bool relevant);
-  
+
   std::ostream& print(std::ostream& out)
   {
     printCore(out);
@@ -54,6 +56,8 @@ class QuantifierLogger
   std::ostream& printCore(std::ostream& out);
 
   void registerUseful(const InstantiationList& instantiations);
+
+  void registerInstantiations(Node quantifier, QuantifiersEngine*);
   void increasePhase(Node quantifier)
   {
     if (!ContainsKey(d_infos, quantifier))
@@ -69,12 +73,12 @@ class QuantifierLogger
 
  protected:
   std::map<Node, QuantifierInfo> d_infos;
-  QuantifiersEngine* d_qe;
-  SmtEngine* d_e;
-  QuantifierLogger() : d_qe(nullptr) {}
+  //QuantifiersEngine* d_qe;
+  //SmtEngine* d_e;
+  QuantifierLogger() /* :d_qe(nullptr) */{}
   void clear()
   {
-    //std::cout << "clearing logger\n";
+    // std::cout << "clearing logger\n";
     d_infos.clear();
   }
 };
