@@ -20,8 +20,8 @@ LightGBMWrapper::LightGBMWrapper(const char* modelFile)
 {  
   const int ec = LGBM_BoosterCreateFromModelfile(
       modelFile, &d_numIterations, &d_handle);
-  std::cout << "; Loaded LGBM model " << modelFile << " with "
-            << d_numIterations << " iterations." << std::endl;
+  /* std::cout << "; Loaded LGBM model " << modelFile << " with " */
+  /*           << d_numIterations << " iterations." << std::endl; */
   AlwaysAssert(ec == 0);
 }
 
