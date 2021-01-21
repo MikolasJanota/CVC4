@@ -112,6 +112,7 @@ void InstStrategyEnum::check(Theory::Effort e, QEffort quant_e)
   FirstOrderModel* fm = d_quantEngine->getModel();
   unsigned nquant = fm->getNumAssertedQuantifiers();
   std::map<Node, bool> alreadyProc;
+  d_rd->compute();
   for (unsigned r = rstart; r <= rend; r++)
   {
     if (d_rd || r > 0)
@@ -120,7 +121,6 @@ void InstStrategyEnum::check(Theory::Effort e, QEffort quant_e)
       {
         Trace("inst-alg") << "-> Relevant domain instantiate..." << std::endl;
         Trace("inst-alg-debug") << "Compute relevant domain..." << std::endl;
-        d_rd->compute();
         Trace("inst-alg-debug") << "...finished" << std::endl;
       }
       else
@@ -144,6 +144,7 @@ void InstStrategyEnum::check(Theory::Effort e, QEffort quant_e)
             }
             // added lemma
             addedLemmas++;
+            //d_rd->compute();
           }
           if (d_quantEngine->inConflict())
           {
