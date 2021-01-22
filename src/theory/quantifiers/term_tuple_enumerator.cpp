@@ -306,6 +306,7 @@ bool TermTupleEnumeratorBase::nextCombination()
 void TermTupleEnumeratorBase::runLearning(size_t variableIx)
 {
   TimerStat::CodeTimer codeTimer(d_context->d_learningTimer);
+  ++d_context->d_learningCounter;
   const auto termCount = d_termsSizes[variableIx];
   auto& permutation = d_termPermutations[variableIx];
   permutation.resize(termCount, 0);
