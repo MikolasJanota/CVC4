@@ -14,8 +14,10 @@
 
 #include "base/map_util.h"
 #include "base/output.h"
+#include "smt/smt_statistics_registry.h"
 #include "theory/quantifiers/term_tuple_enumerator.h"
 #include "theory/quantifiers/term_util.h"
+#include "util/statistics_registry.h"
 
 namespace CVC4 {
 
@@ -44,6 +46,7 @@ class TermTupleEnumeratorBase : public TermTupleEnumeratorInterface
   {
   }
   virtual ~TermTupleEnumeratorBase() = default;
+
   virtual void init() override;
   virtual bool hasNext() override;
   virtual void next(/*out*/ std::vector<Node>& terms) override;
@@ -57,6 +60,7 @@ class TermTupleEnumeratorBase : public TermTupleEnumeratorInterface
   std::vector<size_t> d_termsSizes;
   std::vector<size_t> d_termIndex;
   uint32_t d_stepCounter;
+
   size_t d_stage;
   size_t d_stageCount;
   bool d_hasNext;
@@ -301,6 +305,7 @@ bool TermTupleEnumeratorBase::nextCombination()
 
 void TermTupleEnumeratorBase::runLearning(size_t variableIx)
 {
+  TimerStat::CodeTimer codeTimer(d_context->d_learningTimer);
   const auto termCount = d_termsSizes[variableIx];
   auto& permutation = d_termPermutations[variableIx];
   permutation.resize(termCount, 0);

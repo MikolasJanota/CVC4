@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "cvc4_public.h"
+#include "smt/smt_statistics_registry.h"
 #include "theory/quantifiers/ml.h"
 #include "theory/quantifiers/relevant_domain.h"
 #include "theory/quantifiers_engine.h"
@@ -50,9 +51,19 @@ struct TermTupleEnumeratorContext
   RelevantDomain* d_rd;
   LightGBMWrapper* d_ml;
   std::map<Node, QuantifierInfo> d_qinfos;
+  TimerStat d_learningTimer;
   size_t increasePhase(Node quantifier);
   size_t getCurrentPhase(Node quantifier) const;
   bool addTerm(Node quantifier, Node instantiationTerm, size_t phase);
+  TermTupleEnumeratorContext()
+      : d_learningTimer("theory::quantifiers::fs::timers::learningTimer")
+  {
+    smtStatisticsRegistry()->registerStat(&d_learningTimer);
+  }
+  ~TermTupleEnumeratorContext()
+  {
+    smtStatisticsRegistry()->unregisterStat(&d_learningTimer);
+  }
 };
 
 TermTupleEnumeratorInterface* mkTermTupleEnumerator(

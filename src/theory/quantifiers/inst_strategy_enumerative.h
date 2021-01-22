@@ -24,6 +24,7 @@
 /* #include "theory/quantifiers/quant_util.h" */
 #include "theory/quantifiers/relevant_domain.h"
 #include "theory/quantifiers/term_tuple_enumerator.h"
+#include "smt/smt_statistics_registry.h"
 
 namespace CVC4 {
 namespace theory {
