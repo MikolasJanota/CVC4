@@ -338,7 +338,8 @@ void TermTupleEnumeratorBase::runLearning(size_t variableIx)
     features[1] = termInfo.d_phase;
     features[2] = relevant.find(term) != relevant.end() ? 1 : 0;
     features[3] = TermUtil::getTermDepth(term);
-    scores[termIx] = d_context->d_ml->predict(features);
+    scores[termIx] =
+        d_context->d_ml->predict(d_context->d_lightGBTimer, features);
 
     Trace("inst-alg-rd") << "Prediction " << term << " : [";
     for (size_t i = 0; i < featureCount; i++)

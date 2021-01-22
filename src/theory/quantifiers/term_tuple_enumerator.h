@@ -51,18 +51,21 @@ struct TermTupleEnumeratorContext
   RelevantDomain* d_rd;
   LightGBMWrapper* d_ml;
   std::map<Node, QuantifierInfo> d_qinfos;
-  TimerStat d_learningTimer;
+  TimerStat d_learningTimer, d_lightGBTimer;
   size_t increasePhase(Node quantifier);
   size_t getCurrentPhase(Node quantifier) const;
   bool addTerm(Node quantifier, Node instantiationTerm, size_t phase);
   TermTupleEnumeratorContext()
-      : d_learningTimer("theory::quantifiers::fs::timers::learningTimer")
+      : d_learningTimer("theory::quantifiers::fs::timers::learningTimer"),
+        d_lightGBTimer("theory::quantifiers::fs::timers::lightGBTimer")
   {
     smtStatisticsRegistry()->registerStat(&d_learningTimer);
+    smtStatisticsRegistry()->registerStat(&d_lightGBTimer);
   }
   ~TermTupleEnumeratorContext()
   {
     smtStatisticsRegistry()->unregisterStat(&d_learningTimer);
+    smtStatisticsRegistry()->unregisterStat(&d_lightGBTimer);
   }
 };
 

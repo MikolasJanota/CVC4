@@ -25,8 +25,9 @@ LightGBMWrapper::LightGBMWrapper(const char* modelFile)
   AlwaysAssert(ec == 0);
 }
 
-double LightGBMWrapper::predict(const float* features)
+double LightGBMWrapper::predict(TimerStat& timer, const float* features)
 {
+  TimerStat::CodeTimer codeTimer(timer);
   static_assert(CHAR_BIT * sizeof(float) == 32, "require 32-bit floats");
   double returnValue = 0;
   int64_t returnSize;

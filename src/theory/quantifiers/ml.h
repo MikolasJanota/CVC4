@@ -9,12 +9,14 @@
 #define CVC4__ML
 
 #include "lightgbm.h"
+#include "smt/smt_statistics_registry.h"
+
 namespace CVC4 {
 class LightGBMWrapper
 {
  public:
   LightGBMWrapper(const char* modelFile);
-  double predict(const float * features);
+  double predict(TimerStat& timer, const float* features);
   virtual ~LightGBMWrapper();
 
  protected:
