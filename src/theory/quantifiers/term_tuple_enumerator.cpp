@@ -348,7 +348,7 @@ void TermTupleEnumeratorBase::runLearning(size_t variableIx)
     Trace("inst-alg-rd") << " ] : " << scores[termIx] << std::endl;
   }
 
-  std::sort(permutation.begin(),
+  std::stable_sort(permutation.begin(),
             permutation.end(),
             [scores](size_t a, size_t b) { return scores[a] > scores[b]; });
   Trace("inst-alg-rd") << "Learned order : [";
