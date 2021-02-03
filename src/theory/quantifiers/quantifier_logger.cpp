@@ -30,12 +30,12 @@ void QuantifierLogger::registerInstantiations(Node quantifier,
     Assert(i != d_infos.end());
   }
   qe->getInstantiationTermVectors(quantifier, i->second.d_instantiations);
-  for (const auto& terms : i->second.d_instantiations)
-  {
-    auto& touched = i->second.d_touched;
-    std::copy(
-        terms.begin(), terms.end(), std::inserter(touched, touched.end()));
-  }
+  // for (const auto& terms : i->second.d_instantiations)
+  // {
+  //   auto& touched = i->second.d_touched;
+  //   std::copy(
+  //       terms.begin(), terms.end(), std::inserter(touched, touched.end()));
+  // }
 }
 
 void QuantifierLogger::registerUseful(const InstantiationList& instantiations)
@@ -53,6 +53,18 @@ void QuantifierLogger::registerUseful(const InstantiationList& instantiations)
   i->second.d_useful.insert(i->second.d_useful.end(),
                             instantiations.d_inst.begin(),
                             instantiations.d_inst.end());
+}
+
+void QuantifierLogger::registerTryCandidate(Node quantifier,
+                                            size_t child_ix,
+                                            Node candidate)
+{
+  auto& info = d_infos.at(quantifier);
+  auto& vinfos = info.d_infos;
+  AlwaysAssert(vinfos.size() == quantifier[0].getNumChildren());
+  auto& vinfo = info.d_infos[child_ix];
+  auto& cinfo = vinfo.at(candidate);
+  cinfo.d_tried++;
 }
 
 static std::ostream& printVectorList(
@@ -86,8 +98,7 @@ std::ostream& QuantifierLogger::printCore(std::ostream& out)
   {
     const auto& quantifier = entry.first;
     const auto& usefulInstantiations = entry.second.d_useful;
-    const auto& allInstantiations = entry.second.d_instantiations;
-    const auto& touched = entry.second.d_touched;
+    const auto& allInstantiations = entry.second.d_instantiations;    
     const auto name = quantifier;
 
     // d_qe->getNameForQuant(quantifier, name, false);
@@ -99,15 +110,18 @@ std::ostream& QuantifierLogger::printCore(std::ostream& out)
       for (const auto& term_index : infos[index])
       {
         const Node& term = term_index.first;
-        if (touched.find(term) == touched.end())
+        const auto& candidateInfo = term_index.second;
+        if (candidateInfo.d_tried == 0)
         {
           continue;
         }
+
         all_candidates.insert(term);
         out << " (candidate " << term;
-        out << " (age " << term_index.second.d_age << ")";
-        out << " (phase " << term_index.second.d_phase << ")";
-        out << " (relevant " << term_index.second.d_relevant << ")";
+        out << " (age " << candidateInfo.d_age << ")";
+        out << " (phase " << candidateInfo.d_phase << ")";
+        out << " (relevant " << candidateInfo.d_relevant << ")";
+        out << " (tried " << candidateInfo.d_tried << ")";
         out << ")";
       }
       out << "  )" << std::endl;

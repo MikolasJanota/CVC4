@@ -21,7 +21,8 @@ namespace quantifiers {
 struct CandidateInfo
 {
   size_t d_age, d_phase;
-  bool d_relevant;
+  size_t d_tried = 0;
+  bool d_relevant = false;
 };
 
 struct QuantifierInfo
@@ -29,7 +30,7 @@ struct QuantifierInfo
   std::vector<std::map<Node, CandidateInfo>> d_infos;
   std::vector<std::vector<Node>> d_useful;
   std::vector<std::vector<Node>> d_instantiations;
-  std::set<Node> d_touched;
+  // std::set<Node> d_touched;
   size_t d_currentPhase = 0;
 };
 
@@ -45,6 +46,8 @@ class QuantifierLogger
                          size_t child_ix,
                          Node candidate,
                          bool relevant);
+
+  void registerTryCandidate(Node quantifier, size_t child_ix, Node candidate);
 
   std::ostream& print(std::ostream& out)
   {
@@ -73,9 +76,9 @@ class QuantifierLogger
 
  protected:
   std::map<Node, QuantifierInfo> d_infos;
-  //QuantifiersEngine* d_qe;
-  //SmtEngine* d_e;
-  QuantifierLogger() /* :d_qe(nullptr) */{}
+  // QuantifiersEngine* d_qe;
+  // SmtEngine* d_e;
+  QuantifierLogger() /* :d_qe(nullptr) */ {}
   void clear()
   {
     // std::cout << "clearing logger\n";

@@ -12,6 +12,8 @@
  ** \brief Implementation of an enumerative instantiation strategy.
  **/
 
+#include <cstddef>
+
 #include "options/quantifiers_options.h"
 #include "theory/quantifiers/inst_strategy_enumerative.h"
 #include "theory/quantifiers/instantiate.h"
@@ -21,7 +23,6 @@
 #include "theory/quantifiers/term_tuple_enumerator.h"
 #include "theory/quantifiers/term_util.h"
 #include "theory/quantifiers_engine.h"
-
 
 namespace CVC4 {
 
@@ -144,7 +145,7 @@ void InstStrategyEnum::check(Theory::Effort e, QEffort quant_e)
             }
             // added lemma
             addedLemmas++;
-            //d_rd->compute();
+            // d_rd->compute();
           }
           if (d_quantEngine->inConflict())
           {
@@ -189,12 +190,17 @@ bool InstStrategyEnum::process(Node quantifier, bool fullEffort, bool isRd)
       return false;
     }
     enumerator->next(terms);
+    for (size_t vx = 0; vx < terms.size(); vx++)
+    {
+      QuantifierLogger::s_logger.registerTryCandidate(
+          quantifier, vx, terms[vx]);
+    }
+
     // try instantiation
     if (ie->addInstantiation(quantifier, terms))
     {
       Trace("inst-alg-rd") << "Success!" << std::endl;
       ++(d_quantEngine->d_statistics.d_instantiations_guess);
-      //QuantifierLogger::s_logger.registerInstantiation(quantifier, terms);
       return true;
     }
   }
