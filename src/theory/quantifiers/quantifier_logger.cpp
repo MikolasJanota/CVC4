@@ -59,10 +59,22 @@ void QuantifierLogger::registerTryCandidate(Node quantifier,
                                             size_t child_ix,
                                             Node candidate)
 {
+  if (!ContainsKey(d_infos, quantifier))
+  {
+    d_infos[quantifier].d_infos.resize(quantifier[0].getNumChildren());
+    d_infos[quantifier].d_currentPhase = 0;
+  }
+
   auto& info = d_infos.at(quantifier);
   auto& vinfos = info.d_infos;
   AlwaysAssert(vinfos.size() == quantifier[0].getNumChildren());
   auto& vinfo = info.d_infos[child_ix];
+
+  if (!ContainsKey(vinfo, candidate))
+  {
+    vinfo[candidate];
+  }
+
   auto& cinfo = vinfo.at(candidate);
   cinfo.d_tried++;
 }
@@ -98,7 +110,7 @@ std::ostream& QuantifierLogger::printCore(std::ostream& out)
   {
     const auto& quantifier = entry.first;
     const auto& usefulInstantiations = entry.second.d_useful;
-    const auto& allInstantiations = entry.second.d_instantiations;    
+    const auto& allInstantiations = entry.second.d_instantiations;
     const auto name = quantifier;
 
     // d_qe->getNameForQuant(quantifier, name, false);
