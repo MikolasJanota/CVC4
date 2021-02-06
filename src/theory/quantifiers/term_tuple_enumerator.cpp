@@ -367,8 +367,7 @@ bool TermTupleEnumeratorBase::nextCombination()
 
 void TermTupleEnumeratorBase::runLearning(size_t variableIx)
 {
-  TimerStat::CodeTimer codeTimer(d_context->d_learningTimer);
-  ++d_context->d_learningCounter;
+  TimerStat::CodeTimer codeTimer(d_context->d_learningTimer);  
   const auto termCount = d_termsSizes[variableIx];
   auto& permutation = d_termPermutations[variableIx];
   permutation.resize(termCount, 0);
@@ -378,6 +377,7 @@ void TermTupleEnumeratorBase::runLearning(size_t variableIx)
   {
     return;
   }
+  ++d_context->d_learningCounter;
 
   const auto& relevantTermVector =
       d_context->d_rd->getRDomain(d_quantifier, variableIx)->d_terms;

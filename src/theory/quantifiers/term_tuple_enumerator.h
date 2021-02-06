@@ -59,7 +59,7 @@ struct TermTupleEnumeratorContext
   TermTupleEnumeratorContext()
       : d_learningTimer("theory::quantifiers::fs::timers::learningTimer"),
         d_lightGBTimer("theory::quantifiers::fs::timers::lightGBTimer"),
-        d_learningCounter("theory::quantifiers::fs::timers:mlCounter", 0)
+        d_learningCounter("theory::quantifiers::fs::mlCounter", 0)
   {
     smtStatisticsRegistry()->registerStat(&d_learningTimer);
     smtStatisticsRegistry()->registerStat(&d_lightGBTimer);
