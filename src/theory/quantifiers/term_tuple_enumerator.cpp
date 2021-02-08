@@ -56,6 +56,8 @@ class TermTupleEnumeratorBase : public TermTupleEnumeratorInterface
   std::vector<size_t> d_termsSizes;
   std::vector<size_t> d_termIndex;
   uint32_t d_stepCounter;
+
+  size_t d_currentSum = 0;
   size_t d_stage;
   size_t d_stageCount;
   bool d_hasNext;
@@ -63,8 +65,10 @@ class TermTupleEnumeratorBase : public TermTupleEnumeratorInterface
   std::mt19937 d_mt;
   /* Allow larger indices from now on */
   bool increaseStage();
+  bool increaseStageSum();
   /* Move on in the current stage */
   bool nextCombination();
+  bool nextCombinationSum();
   /**
    *  Set up terms for  given variable.
    */
@@ -282,8 +286,28 @@ void TermTupleEnumeratorBase::next(/*out*/ std::vector<Node>& terms)
   }
 }
 
+bool TermTupleEnumeratorBase::increaseStageSum()
+{
+  const size_t lowerBound = d_currentSum + 1;
+  Trace("inst-alg-rd") << "Try sum " << lowerBound << "..." << std::endl;
+  d_currentSum = 0;
+  for (size_t digit = d_termIndex.size(); d_currentSum < lowerBound && digit--;)
+  {
+    const size_t missing = lowerBound - d_currentSum;
+    const size_t maxValue = d_termsSizes[digit] ? d_termsSizes[digit] - 1 : 0;
+    d_termIndex[digit] = std::min(missing, maxValue);
+    d_currentSum += d_termIndex[digit];
+  }
+  return d_currentSum >= lowerBound;
+}
+
 bool TermTupleEnumeratorBase::increaseStage()
 {
+  if (options::fullSaturateSum())
+  {
+    return increaseStageSum();
+  }
+
   d_stage++;
   if (d_stage >= d_stageCount)
   {
@@ -307,9 +331,48 @@ bool TermTupleEnumeratorBase::increaseStage()
   return found;
 }
 
+bool TermTupleEnumeratorBase::nextCombinationSum()
+{
+  size_t suffixSum = 0;
+  bool found = false;
+  size_t increaseDigit = d_termIndex.size();
+  while (increaseDigit--)
+  {
+    const size_t newValue = d_termIndex[increaseDigit] + 1;
+    found = suffixSum > 0 && newValue < d_termsSizes[increaseDigit];
+    if (found)
+    {
+      d_termIndex[increaseDigit] = newValue;
+      break;
+    }
+    suffixSum += d_termIndex[increaseDigit];
+    d_termIndex[increaseDigit] = 0;
+  }
+  if (!found)
+  {
+    return false;
+  }
+  Assert(suffixSum > 0);
+  size_t missing = suffixSum - 1;  // increaseDigit went up by one
+  for (size_t digit = d_termIndex.size(); missing > 0 && digit--;)
+  {
+    const size_t maxValue = d_termsSizes[digit] ? d_termsSizes[digit] - 1 : 0;
+    d_termIndex[digit] = std::min(missing, maxValue);
+    missing -= d_termIndex[digit];
+  }
+  Assert(missing == 0);
+  return true;
+}
+
 bool TermTupleEnumeratorBase::nextCombination()
 {
   Assert(d_termIndex.size() == d_variableCount);
+
+  if (options::fullSaturateSum())
+  {
+    return nextCombinationSum();
+  }
+
   for (size_t digit = d_termIndex.size(); digit--;)
   {
     const size_t new_value = d_termIndex[digit] + 1;
