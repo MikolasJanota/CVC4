@@ -7,6 +7,7 @@
 #include <iostream>
 #include <iterator>
 #include <set>
+#include <utility>
 
 #include "base/map_util.h"
 #include "theory/quantifiers/quantifier_logger.h"
@@ -91,20 +92,21 @@ static std::ostream& printVectorList(
   return out;
 }
 
+static std::ostream& printSample(std::ostream& out,
+                                 const std::vector<int32_t>& sample)
+{
+  for (size_t i = 0; i < sample.size(); i++)
+  {
+    out << (i ? ", " : "") << sample[i];
+  }
+  return out;
+}
+
 std::ostream& QuantifierLogger::printCore(std::ostream& out)
 {
-  /*
-  Assert(d_qe);
-  if (!d_qe)
-  {
-    return out;
-  }
-*/
-
-  // smt::SmtScope smts(d_qe->getTheoryEngine());
-
   std::set<Node> useful_terms;
   std::set<Node> all_candidates;
+  std::vector<std::vector<int32_t>> samples;
   out << "(quantifier_candidates " << std::endl;
   for (const auto& entry : d_infos)
   {
@@ -112,14 +114,37 @@ std::ostream& QuantifierLogger::printCore(std::ostream& out)
     const auto& usefulInstantiations = entry.second.d_useful;
     const auto& allInstantiations = entry.second.d_instantiations;
     const auto name = quantifier;
+    const auto& infos = entry.second.d_infos;
+    const auto variableCount = infos.size();
+
+    // Record if a term was ever useful for each variable
+    std::vector<std::map<Node, int32_t>> usefulPerVariable(variableCount);
+    for (const auto& instantiation : usefulInstantiations)
+    {
+      Assert(instantiation.size() == variableCount);
+      for (size_t varIx = 0; varIx < variableCount; varIx++)
+      {
+        auto& vm = usefulPerVariable[varIx];
+        const auto& term = instantiation[varIx];
+        const auto i = vm.find(term);
+        if (i == vm.end())
+        {
+          vm.insert(i, std::make_pair(term, 1));
+        }
+        else
+        {
+          i->second++;
+        }
+      }
+    }
 
     // d_qe->getNameForQuant(quantifier, name, false);
-    const auto& infos = entry.second.d_infos;
+
     out << "(candidates " << name << " " << std::endl;
-    for (size_t index = 0; index < infos.size(); index++)
+    for (size_t varIx = 0; varIx < variableCount; varIx++)
     {
-      out << "  (variable " << index;
-      for (const auto& term_index : infos[index])
+      out << "  (variable " << varIx;
+      for (const auto& term_index : infos[varIx])
       {
         const Node& term = term_index.first;
         const auto& candidateInfo = term_index.second;
@@ -129,12 +154,26 @@ std::ostream& QuantifierLogger::printCore(std::ostream& out)
         }
 
         all_candidates.insert(term);
+        const auto i = usefulPerVariable[varIx].find(term);
+        const auto termUseful =
+            (i == usefulPerVariable[varIx].end()) ? 0 : i->second;
         out << " (candidate " << term;
         out << " (age " << candidateInfo.d_age << ")";
         out << " (phase " << candidateInfo.d_phase << ")";
         out << " (relevant " << candidateInfo.d_relevant << ")";
+        out << " (depth " << TermUtil::getTermDepth(term) << ")";
         out << " (tried " << candidateInfo.d_tried << ")";
+
+        out << " (useful " << termUseful << ")";
         out << ")";
+        const auto sz = samples.size();
+        samples.resize(sz + 1);
+        samples[sz].push_back(candidateInfo.d_age);
+        samples[sz].push_back(candidateInfo.d_phase);
+        samples[sz].push_back(candidateInfo.d_relevant);
+        samples[sz].push_back(TermUtil::getTermDepth(term));
+        samples[sz].push_back(candidateInfo.d_tried);
+        samples[sz].push_back(termUseful);
       }
       out << "  )" << std::endl;
     }
@@ -149,22 +188,12 @@ std::ostream& QuantifierLogger::printCore(std::ostream& out)
   }
   out << ")" << std::endl;
 
-  /*
-  TermUtil te(d_qe);
-
-  out << "(candidate_infos " << std::endl;
-  for (const auto& term : all_candidates)
+  out << "; SAMPLES" << std::endl;
+  out << "; age, phase, relevant, depth, tried, useful " << std::endl;
+  for (const auto& sample : samples)
   {
-    out << "(candidate_info " << term << " " << std::endl;
-    out << "   (depth " << TermUtil::getTermDepth(term) << ") ";
-    out << "   (useful " << (useful_terms.find(term) != useful_terms.end())
-        << ") ";
-    // out << "   (containsUninterpretedConstant "  <<
-    // te.containsUninterpretedConstant(term) << ") ";
-    out << ")" << std::endl;
+    printSample(out, sample) << std::endl;
   }
-  out << ")" << std::endl;
-*/
   return out;
 }
 
