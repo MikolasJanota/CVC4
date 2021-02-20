@@ -4,6 +4,8 @@
  * Created on:  Fri Dec 18 14:26:58 CET 2020
  * Copyright (C) 2020, Mikolas Janota
  */
+#include "theory/quantifiers/term_tuple_enumerator.h"
+
 #include <algorithm>
 #include <cstddef>
 #include <functional>
@@ -15,7 +17,7 @@
 #include "base/map_util.h"
 #include "base/output.h"
 #include "smt/smt_statistics_registry.h"
-#include "theory/quantifiers/term_tuple_enumerator.h"
+#include "theory/quantifiers/index_trie.h"
 #include "theory/quantifiers/term_util.h"
 #include "util/statistics_registry.h"
 
@@ -37,9 +39,11 @@ class TermTupleEnumeratorBase : public TermTupleEnumeratorInterface
  public:
   TermTupleEnumeratorBase(Node quantifier,
                           bool fullEffort,
+                          bool increaseSum,
                           TermTupleEnumeratorContext* context)
       : d_quantifier(quantifier),
         d_fullEffort(fullEffort),
+        d_increaseSum(increaseSum),
         d_variableCount(d_quantifier[0].getNumChildren()),
         d_context(context),
         d_stepCounter(0)
@@ -50,16 +54,20 @@ class TermTupleEnumeratorBase : public TermTupleEnumeratorInterface
   virtual void init() override;
   virtual bool hasNext() override;
   virtual void next(/*out*/ std::vector<Node>& terms) override;
+  virtual void failureReason(const std::vector<bool>& mask) override;
 
  protected:
   const Node d_quantifier;
   const bool d_fullEffort;
+  const bool d_increaseSum;
   const size_t d_variableCount;
   TermTupleEnumeratorContext* const d_context;
   std::vector<TypeNode> d_typeCache;
   std::vector<size_t> d_termsSizes;
   std::vector<size_t> d_termIndex;
   uint32_t d_stepCounter;
+
+  IndexTrie d_disabledCombinations;
 
   size_t d_currentSum = 0;
   size_t d_stage;
@@ -69,7 +77,9 @@ class TermTupleEnumeratorBase : public TermTupleEnumeratorInterface
   /* Allow larger indices from now on */
   bool increaseStage();
   bool increaseStageSum();
+  bool increaseStageMax();
   /* Move on in the current stage */
+  bool nextCombinationInternal();
   bool nextCombination();
   bool nextCombinationSum();
   /**
@@ -95,8 +105,9 @@ class TermTupleEnumeratorBasic : public TermTupleEnumeratorBase
  public:
   TermTupleEnumeratorBasic(Node quantifier,
                            bool fullEffort,
+                           bool increaseSum,
                            TermTupleEnumeratorContext* context)
-      : TermTupleEnumeratorBase(quantifier, fullEffort, context)
+      : TermTupleEnumeratorBase(quantifier, fullEffort, increaseSum, context)
   {
   }
   virtual ~TermTupleEnumeratorBasic() = default;
@@ -112,8 +123,9 @@ class TermTupleEnumeratorRD : public TermTupleEnumeratorBase
  public:
   TermTupleEnumeratorRD(Node quantifier,
                         bool fullEffort,
+                        bool increaseSum,
                         TermTupleEnumeratorContext* context)
-      : TermTupleEnumeratorBase(quantifier, fullEffort, context)
+      : TermTupleEnumeratorBase(quantifier, fullEffort, increaseSum, context)
   {
   }
   virtual ~TermTupleEnumeratorRD() = default;
@@ -134,14 +146,16 @@ class TermTupleEnumeratorRD : public TermTupleEnumeratorBase
 TermTupleEnumeratorInterface* mkTermTupleEnumerator(
     Node quantifier,
     bool fullEffort,
+    bool increaseSum,
     bool isRd,
     TermTupleEnumeratorContext* context)
 {
-  return isRd
-             ? static_cast<TermTupleEnumeratorInterface*>(
-                 new TermTupleEnumeratorRD(quantifier, fullEffort, context))
-             : static_cast<TermTupleEnumeratorInterface*>(
-                 new TermTupleEnumeratorBasic(quantifier, fullEffort, context));
+  return isRd ? static_cast<TermTupleEnumeratorInterface*>(
+             new TermTupleEnumeratorRD(
+                 quantifier, fullEffort, increaseSum, context))
+              : static_cast<TermTupleEnumeratorInterface*>(
+                  new TermTupleEnumeratorBasic(
+                      quantifier, fullEffort, increaseSum, context));
 }
 
 bool TermTupleEnumeratorContext::addTerm(Node quantifier,
@@ -231,20 +245,35 @@ bool TermTupleEnumeratorBase::hasNext()
   }
 
   if (d_stepCounter++ == 0)
-  {  // TODO: (nice) any way of avoiding this special if?
+  {  // TODO:any (nice)  way of avoiding this special if?
     Assert(d_stage == 0);
     Trace("inst-alg-rd") << "Try stage " << d_stage << "..." << std::endl;
     return true;
   }
 
-  // try to find the next combination in the current state or increase stage
-  if (nextCombination() || increaseStage())
+  // try to find the next combination
+  if (nextCombination())
   {
     return true;
   }
 
   // we ran out of stages
   return d_hasNext = false;
+}
+
+void TermTupleEnumeratorBase::failureReason(const std::vector<bool>& mask)
+{
+  Assert(mask.size() == d_variableCount);
+  std::vector<size_t> combination;
+  for (size_t i = 0; i < d_variableCount; ++i)
+  {
+    if (mask[i])
+    {
+      combination.push_back(d_termIndex[i]);
+    }
+  }
+
+  d_disabledCombinations.add(combination);
 }
 
 void TermTupleEnumeratorBase::next(/*out*/ std::vector<Node>& terms)
@@ -282,11 +311,11 @@ bool TermTupleEnumeratorBase::increaseStageSum()
 
 bool TermTupleEnumeratorBase::increaseStage()
 {
-  if (options::fullSaturateSum())
-  {
-    return increaseStageSum();
-  }
+  return options::fullSaturateSum() ? increaseStageSum() : increaseStageMax();
+}
 
+bool TermTupleEnumeratorBase::increaseStageMax()
+{
   d_stage++;
   if (d_stage >= d_stageCount)
   {
@@ -345,9 +374,24 @@ bool TermTupleEnumeratorBase::nextCombinationSum()
 
 bool TermTupleEnumeratorBase::nextCombination()
 {
+  while (true)
+  {
+    if (!nextCombinationInternal() && !increaseStage())
+    {
+      return false;
+    }
+    if (!d_disabledCombinations.find(d_termIndex))
+    {
+      return true;
+    }
+  }
+}
+
+bool TermTupleEnumeratorBase::nextCombinationInternal()
+{
   Assert(d_termIndex.size() == d_variableCount);
 
-  if (options::fullSaturateSum())
+  if (d_increaseSum)
   {
     return nextCombinationSum();
   }
@@ -367,7 +411,7 @@ bool TermTupleEnumeratorBase::nextCombination()
 
 void TermTupleEnumeratorBase::runLearning(size_t variableIx)
 {
-  TimerStat::CodeTimer codeTimer(d_context->d_learningTimer);  
+  TimerStat::CodeTimer codeTimer(d_context->d_learningTimer);
   const auto termCount = d_termsSizes[variableIx];
   auto& permutation = d_termPermutations[variableIx];
   permutation.resize(termCount, 0);
@@ -393,6 +437,7 @@ void TermTupleEnumeratorBase::runLearning(size_t variableIx)
 
   Trace("inst-alg-rd") << "Predicting terms for var" << variableIx
                        << " on [age, phase, relevant, depth]" << std::endl;
+  AlwaysAssert(d_context->d_ml->numberOfFeatures() == 4);
   for (size_t termIx = 0; termIx < termCount; termIx++)
   {
     const auto term = getTermCore(variableIx, termIx);
@@ -401,8 +446,11 @@ void TermTupleEnumeratorBase::runLearning(size_t variableIx)
     features[1] = termInfo.d_phase;
     features[2] = relevant.find(term) != relevant.end() ? 1 : 0;
     features[3] = TermUtil::getTermDepth(term);
-    scores[termIx] =
-        d_context->d_ml->predict(d_context->d_lightGBTimer, features);
+
+    {
+      TimerStat::CodeTimer predictTimer(d_context->d_mlTimer);
+      scores[termIx] = d_context->d_ml->predict(features);
+    }
 
     Trace("inst-alg-rd") << "Prediction " << term << " : [";
     for (size_t i = 0; i < featureCount; i++)

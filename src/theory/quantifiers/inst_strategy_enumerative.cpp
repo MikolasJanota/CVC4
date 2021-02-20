@@ -12,8 +12,9 @@
  ** \brief Implementation of an enumerative instantiation strategy.
  **/
 
-#include "options/quantifiers_options.h"
 #include "theory/quantifiers/inst_strategy_enumerative.h"
+
+#include "options/quantifiers_options.h"
 #include "theory/quantifiers/instantiate.h"
 #include "theory/quantifiers/relevant_domain.h"
 #include "theory/quantifiers/term_database.h"
@@ -41,9 +42,17 @@ InstStrategyEnum::InstStrategyEnum(QuantifiersEngine* qe,
 {
   d_tteContext.d_rd = rd;
   d_tteContext.d_quantEngine = d_quantEngine;
-  d_tteContext.d_ml = (options::lightGBModel.wasSetByUser())
-             ? new LightGBMWrapper(options::lightGBModel().c_str())
-             : nullptr;
+  d_tteContext.d_ml = nullptr;
+  if (options::lightGBModel.wasSetByUser())
+    d_tteContext.d_ml = new LightGBMWrapper(options::lightGBModel().c_str());
+  else if (options::sigmoidModel.wasSetByUser())
+    d_tteContext.d_ml = new Sigmoid(options::sigmoidModel().c_str());
+  if (d_tteContext.d_ml)
+  {
+    Trace("fs-engine") << "Loaded ML with "
+                       << d_tteContext.d_ml->numberOfFeatures() << " features."
+                       << std::endl;
+  }
 }
 
 void InstStrategyEnum::presolve()
@@ -184,7 +193,11 @@ void InstStrategyEnum::check(Theory::Effort e, QEffort quant_e)
 bool InstStrategyEnum::process(Node quantifier, bool fullEffort, bool isRd)
 {
   std::unique_ptr<TermTupleEnumeratorInterface> enumerator(
-      mkTermTupleEnumerator(quantifier, fullEffort, isRd, &d_tteContext));
+      mkTermTupleEnumerator(quantifier,
+                            fullEffort,
+                            options::fullSaturateSum(),
+                            isRd,
+                            &d_tteContext));
   std::vector<Node> terms;
   Instantiate* const ie = d_quantEngine->getInstantiate();
   for (enumerator->init(); enumerator->hasNext();)

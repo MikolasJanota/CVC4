@@ -24,6 +24,7 @@ class TermTupleEnumeratorInterface
   virtual void init() = 0;
   virtual bool hasNext() = 0;
   virtual void next(/*out*/ std::vector<Node>& terms) = 0;
+  virtual void failureReason(const std::vector<bool>& mask) = 0;
   virtual ~TermTupleEnumeratorInterface() = default;
 };
 
@@ -49,26 +50,26 @@ struct TermTupleEnumeratorContext
 {
   QuantifiersEngine* d_quantEngine;
   RelevantDomain* d_rd;
-  LightGBMWrapper* d_ml;
+  LearningInterface* d_ml;
   std::map<Node, QuantifierInfo> d_qinfos;
-  TimerStat d_learningTimer, d_lightGBTimer;
+  TimerStat d_learningTimer, d_mlTimer;
   IntStat d_learningCounter;
   size_t increasePhase(Node quantifier);
   size_t getCurrentPhase(Node quantifier) const;
   bool addTerm(Node quantifier, Node instantiationTerm, size_t phase);
   TermTupleEnumeratorContext()
       : d_learningTimer("theory::quantifiers::fs::timers::learningTimer"),
-        d_lightGBTimer("theory::quantifiers::fs::timers::lightGBTimer"),
+        d_mlTimer("theory::quantifiers::fs::timers::mlTimer"),
         d_learningCounter("theory::quantifiers::fs::mlCounter", 0)
   {
     smtStatisticsRegistry()->registerStat(&d_learningTimer);
-    smtStatisticsRegistry()->registerStat(&d_lightGBTimer);
+    smtStatisticsRegistry()->registerStat(&d_mlTimer);
     smtStatisticsRegistry()->registerStat(&d_learningCounter);
   }
   ~TermTupleEnumeratorContext()
   {
     smtStatisticsRegistry()->unregisterStat(&d_learningTimer);
-    smtStatisticsRegistry()->unregisterStat(&d_lightGBTimer);
+    smtStatisticsRegistry()->unregisterStat(&d_mlTimer);
     smtStatisticsRegistry()->unregisterStat(&d_learningCounter);
   }
 };
@@ -76,6 +77,7 @@ struct TermTupleEnumeratorContext
 TermTupleEnumeratorInterface* mkTermTupleEnumerator(
     Node quantifier,
     bool fullEffort,
+    bool increaseSum,
     bool isRd,
     TermTupleEnumeratorContext* context);
 

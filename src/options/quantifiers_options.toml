@@ -565,6 +565,15 @@ header = "options/quantifiers_options.h"
   help       = "enumerating tuples of quantifiers by increasing the sum of indices"
 
 [[option]]
+  name       = "sigmoidModel"
+  category   = "regular"
+  long       = "sigmoidModel=S"
+  type       = "std::string"
+  default    = ""
+  read_only  = true
+  help       = "sigmoid model"
+
+[[option]]
   name       = "lightGBModel"
   category   = "regular"
   long       = "lightGBModel=S"
