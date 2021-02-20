@@ -33,7 +33,7 @@ class Sigmoid : public LearningInterface
     if (x < 0)
     {
       const double expx = std::exp(x);
-      return expx * (1 + expx);
+      return expx / (1 + expx);
     }
     return 1 / (1 + std::exp(-x));
   }
