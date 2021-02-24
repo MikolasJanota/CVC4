@@ -204,7 +204,7 @@ void TermTupleEnumeratorBase::init()
   d_termPermutations.resize(d_variableCount);
 
   // ignore if constant true (rare case of non-standard quantifier whose body is
-  // rewritten to true)
+  // rewritten to true) TODO: should this be here or one level above?
   if (d_quantifier[1].isConst() && d_quantifier[1].getConst<bool>())
   {
     d_hasNext = false;
