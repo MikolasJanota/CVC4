@@ -21,9 +21,14 @@ namespace quantifiers {
 class TermTupleEnumeratorInterface
 {
  public:
+  /** Initialize the enumerator. */
   virtual void init() = 0;
+  /** Test if there are any more combinations. */
   virtual bool hasNext() = 0;
+  /** Obtain the next combination, meaningful only if hasNext Returns true. */
   virtual void next(/*out*/ std::vector<Node>& terms) = 0;
+  /** Record which of the terms obtained by the last call of next should not be
+   * explored again. */
   virtual void failureReason(const std::vector<bool>& mask) = 0;
   virtual ~TermTupleEnumeratorInterface() = default;
 };
@@ -75,11 +80,7 @@ struct TermTupleEnumeratorContext
 };
 
 TermTupleEnumeratorInterface* mkTermTupleEnumerator(
-    Node quantifier,
-    bool fullEffort,
-    bool increaseSum,
-    bool isRd,
-    TermTupleEnumeratorContext* context);
+    Node quantifier, const TermTupleEnumeratorContext* context);
 
 }  // namespace quantifiers
 }  // namespace theory

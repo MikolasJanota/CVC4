@@ -53,22 +53,29 @@ class TermTupleEnumeratorBase : public TermTupleEnumeratorInterface
   }
   virtual ~TermTupleEnumeratorBase() = default;
 
+  // implementation of the TermTupleEnumeratorInterface
   virtual void init() override;
   virtual bool hasNext() override;
   virtual void next(/*out*/ std::vector<Node>& terms) override;
   virtual void failureReason(const std::vector<bool>& mask) override;
+  // end of implementation of the TermTupleEnumeratorInterface
 
  protected:
   const Node d_quantifier;
   const bool d_fullEffort;
   const bool d_increaseSum;
   const size_t d_variableCount;
-  TermTupleEnumeratorContext* const d_context;
-  std::vector<TypeNode> d_typeCache;
+  const TermTupleEnumeratorContext* const d_context;
+  /** type for each variable */
+  std::vector<TypeNode> d_typeCache;  
+  /** number of candidate terms for each variable */
   std::vector<size_t> d_termsSizes;
+  /** tuple of indices of the current terms */
   std::vector<size_t> d_termIndex;
+  /** total number of steps of the enumerator */
   uint32_t d_stepCounter;
 
+  /** a data structure storing disabled combinations of terms */
   IndexTrie d_disabledCombinations;
 
   size_t d_currentSum = 0;
@@ -77,16 +84,17 @@ class TermTupleEnumeratorBase : public TermTupleEnumeratorInterface
   bool d_hasNext;
   std::vector<std::vector<size_t> > d_termPermutations;
   /* Allow larger indices from now on */
+  /** Move onto the next stage */
   bool increaseStage();
   bool increaseStageSum();
   bool increaseStageMax();
-  /* Move on in the current stage */
-  bool nextCombinationInternal();
+  /** Move on in the current stage */
   bool nextCombination();
+  bool nextCombinationInternal();
   bool nextCombinationSum();
   bool nextCombinationMax();
   /**
-   *  Set up terms for  given variable.
+   *  Set up terms for given variable.
    */
   virtual size_t prepareTerms(size_t variableIx) = 0;
   /**
@@ -101,6 +109,8 @@ class TermTupleEnumeratorBase : public TermTupleEnumeratorInterface
   }
 
   void runLearning(size_t variableIx);
+  virtual Node getTerm(size_t variableIx,
+                       size_t term_index) CVC4_WARN_UNUSED_RESULT = 0;
 };
 
 class TermTupleEnumeratorBasic : public TermTupleEnumeratorBase
@@ -147,11 +157,7 @@ class TermTupleEnumeratorRD : public TermTupleEnumeratorBase
 };
 
 TermTupleEnumeratorInterface* mkTermTupleEnumerator(
-    Node quantifier,
-    bool fullEffort,
-    bool increaseSum,
-    bool isRd,
-    TermTupleEnumeratorContext* context)
+    Node quantifier, const TermTupleEnumeratorContext* context)
 {
   return isRd ? static_cast<TermTupleEnumeratorInterface*>(
              new TermTupleEnumeratorRD(
@@ -249,8 +255,9 @@ bool TermTupleEnumeratorBase::hasNext()
 
   if (d_stepCounter++ == 0)
   {  // TODO:any (nice)  way of avoiding this special if?
-    Assert(d_stage == 0);
-    Trace("inst-alg-rd") << "Try stage " << d_stage << "..." << std::endl;
+    Assert(d_currentStage == 0);
+    Trace("inst-alg-rd") << "Try stage " << d_currentStage << "..."
+                         << std::endl;
     return true;
   }
 
@@ -307,8 +314,9 @@ bool TermTupleEnumeratorBase::increaseStageSum()
 {
   const size_t lowerBound = d_currentSum + 1;
   Trace("inst-alg-rd") << "Try sum " << lowerBound << "..." << std::endl;
-  d_currentSum = 0;
-  for (size_t digit = d_termIndex.size(); d_currentSum < lowerBound && digit--;)
+  d_currentStage = 0;
+  for (size_t digit = d_termIndex.size();
+       d_currentStage < lowerBound && digit--;)
   {
     const size_t missing = lowerBound - d_currentSum;
     const size_t maxValue = d_termsSizes[digit] ? d_termsSizes[digit] - 1 : 0;
