@@ -18,6 +18,7 @@
 #include "base/output.h"
 #include "smt/smt_statistics_registry.h"
 #include "theory/quantifiers/index_trie.h"
+#include "theory/quantifiers/quant_module.h"
 #include "theory/quantifiers/term_util.h"
 #include "util/statistics_registry.h"
 
@@ -46,7 +47,8 @@ class TermTupleEnumeratorBase : public TermTupleEnumeratorInterface
         d_increaseSum(increaseSum),
         d_variableCount(d_quantifier[0].getNumChildren()),
         d_context(context),
-        d_stepCounter(0)
+        d_stepCounter(0),
+        d_disabledCombinations(true) // do not record combinations with no blanks
   {
   }
   virtual ~TermTupleEnumeratorBase() = default;
@@ -82,6 +84,7 @@ class TermTupleEnumeratorBase : public TermTupleEnumeratorInterface
   bool nextCombinationInternal();
   bool nextCombination();
   bool nextCombinationSum();
+  bool nextCombinationMax();
   /**
    *  Set up terms for  given variable.
    */
@@ -263,17 +266,23 @@ bool TermTupleEnumeratorBase::hasNext()
 
 void TermTupleEnumeratorBase::failureReason(const std::vector<bool>& mask)
 {
-  Assert(mask.size() == d_variableCount);
-  std::vector<size_t> combination;
-  for (size_t i = 0; i < d_variableCount; ++i)
+  if (Trace.isOn("inst-alg"))
   {
-    if (mask[i])
+    Trace("inst-alg") << "failureReason [ ";
+    for (size_t variableIx = 0; variableIx < d_variableCount; variableIx++)
     {
-      combination.push_back(d_termIndex[i]);
+      if (mask[variableIx])
+      {
+        Trace("inst-alg") << d_termIndex[variableIx] << " ";
+      }
+      else
+      {
+        Trace("inst-alg") << "_ ";
+      }
     }
+    Trace("inst-alg") << "]" << std::endl;
   }
-
-  d_disabledCombinations.add(combination);
+  d_disabledCombinations.add(mask, d_termIndex);
 }
 
 void TermTupleEnumeratorBase::next(/*out*/ std::vector<Node>& terms)
@@ -339,6 +348,41 @@ bool TermTupleEnumeratorBase::increaseStageMax()
   return found;
 }
 
+bool TermTupleEnumeratorBase::nextCombination()
+{
+  while (true)
+  {
+    if (!nextCombinationInternal() && !increaseStage())
+    {
+      return false;
+    }
+    if (!d_disabledCombinations.find(d_termIndex))
+    {
+      return true;
+    }
+  }
+}
+
+bool TermTupleEnumeratorBase::nextCombinationInternal()
+{
+  return d_increaseSum ? nextCombinationSum() : nextCombinationMax();
+}
+
+bool TermTupleEnumeratorBase::nextCombinationMax()
+{
+  for (size_t digit = d_termIndex.size(); digit--;)
+  {
+    const size_t new_value = d_termIndex[digit] + 1;
+    if (new_value < d_termsSizes[digit] && new_value <= d_stage)
+    {
+      d_termIndex[digit] = new_value;
+      std::fill(d_termIndex.begin() + digit + 1, d_termIndex.end(), 0);
+      return true;
+    }
+  }
+  return false;
+}
+
 bool TermTupleEnumeratorBase::nextCombinationSum()
 {
   size_t suffixSum = 0;
@@ -372,42 +416,6 @@ bool TermTupleEnumeratorBase::nextCombinationSum()
   return true;
 }
 
-bool TermTupleEnumeratorBase::nextCombination()
-{
-  while (true)
-  {
-    if (!nextCombinationInternal() && !increaseStage())
-    {
-      return false;
-    }
-    if (!d_disabledCombinations.find(d_termIndex))
-    {
-      return true;
-    }
-  }
-}
-
-bool TermTupleEnumeratorBase::nextCombinationInternal()
-{
-  Assert(d_termIndex.size() == d_variableCount);
-
-  if (d_increaseSum)
-  {
-    return nextCombinationSum();
-  }
-
-  for (size_t digit = d_termIndex.size(); digit--;)
-  {
-    const size_t new_value = d_termIndex[digit] + 1;
-    if (new_value < d_termsSizes[digit] && new_value <= d_stage)
-    {
-      d_termIndex[digit] = new_value;
-      std::fill(d_termIndex.begin() + digit + 1, d_termIndex.end(), 0);
-      return true;
-    }
-  }
-  return false;
-}
 
 void TermTupleEnumeratorBase::runLearning(size_t variableIx)
 {
@@ -476,7 +484,8 @@ void TermTupleEnumeratorBase::runLearning(size_t variableIx)
 size_t TermTupleEnumeratorBasic::prepareTerms(size_t variableIx)
 {
   TermDb* const tdb = d_context->d_quantEngine->getTermDatabase();
-  EqualityQuery* const qy = d_context->d_quantEngine->getEqualityQuery();
+  /* EqualityQuery* const qy = d_context->d_quantEngine->getEqualityQuery(); */
+  QuantifiersState& qs = d_context->d_quantEngine->getState();
   const TypeNode type_node = d_typeCache[variableIx];
 
   if (!ContainsKey(d_term_db_list, type_node))
@@ -488,7 +497,8 @@ size_t TermTupleEnumeratorBasic::prepareTerms(size_t variableIx)
       Node gt = tdb->getTypeGroundTerm(type_node, j);
       if (!options::cegqi() || !quantifiers::TermUtil::hasInstConstAttr(gt))
       {
-        Node rep = qy->getRepresentative(gt);
+        /* Node rep = qy->getRepresentative(gt); */
+        Node rep = qs.getRepresentative(gt);
         if (reps_found.find(rep) != reps_found.end())
         {
           continue;

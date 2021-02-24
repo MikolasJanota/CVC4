@@ -6,32 +6,51 @@
  */
 #ifndef INDEX_TRIE_H_45
 #define INDEX_TRIE_H_45
+#include <algorithm>
+#include <utility>
 #include <vector>
 
 #include "base/check.h"
 namespace CVC4 {
 struct IndexTrieNode
 {
-  size_t d_value;
-  std::vector<IndexTrieNode*> d_children;
+  std::vector<std::pair<size_t, IndexTrieNode*>> d_children;
+  IndexTrieNode* d_blank = nullptr;
 };
 
+/** Trie  of indices, used to check subsumption.
+ *
+ */
 class IndexTrie
 {
  public:
-  IndexTrie() : d_root(new IndexTrieNode()) {}
+  IndexTrie(bool ignoreFullySpecified)
+      : d_ignoreFullySpecified(ignoreFullySpecified),
+        d_root(new IndexTrieNode())
+  {
+  }
+
   virtual ~IndexTrie() { free_rec(d_root); }
   bool isEmpty() const { return d_root->d_children.empty(); }
-  void add(const std::vector<size_t>& members)
+  void add(const std::vector<bool>& mask, const std::vector<size_t>& values)
   {
-    d_root = add_rec(d_root, 0, members);
+    const size_t cardinality = std::count(mask.begin(), mask.end(), true);
+    if (d_ignoreFullySpecified && cardinality == mask.size())
+    {
+      return;
+    }
+
+    d_root = add_rec(d_root, 0, mask, values);
   }
+  /**  Check if the given set of indices is subsumed by something present in the
+   * trie. */
   bool find(const std::vector<size_t>& members) const
   {
     return find_rec(d_root, 0, members);
   }
 
  private:
+  const bool d_ignoreFullySpecified;
   IndexTrieNode* d_root;
 
   void free_rec(IndexTrieNode* n)
@@ -40,10 +59,11 @@ class IndexTrie
     {
       return;
     }
-    for (IndexTrieNode* c : n->d_children)
+    for (auto c : n->d_children)
     {
-      free_rec(c);
+      free_rec(c.second);
     }
+    free_rec(n->d_blank);
     delete n;
   }
 
@@ -51,18 +71,21 @@ class IndexTrie
                 size_t index,
                 const std::vector<size_t>& members) const
   {
-    if (index >= members.size())  // all elements matched
-    {
-      return true;
-    }
     if (!n)
     {
       return false;
     }
-    for (const IndexTrieNode* c : n->d_children)
+    if (index >= members.size())  // all elements of members matched
     {
-      if ((c->d_value == members[index] && find_rec(c, index + 1, members))
-          || (c->d_value != members[index] && find_rec(c, index, members)))
+      return true;
+    }
+    if (find_rec(n->d_blank, index + 1, members))
+    {
+      return true;
+    }
+    for (const auto& c : n->d_children)
+    {
+      if (c.first == members[index] && find_rec(c.second, index + 1, members))
       {
         return true;
       }
@@ -72,27 +95,34 @@ class IndexTrie
 
   IndexTrieNode* add_rec(IndexTrieNode* n,
                          size_t index,
-                         const std::vector<size_t>& members)
+                         const std::vector<bool>& mask,
+                         const std::vector<size_t>& values)
   {
-    if (index >= members.size())  // the old strings are already subsumed
+    Assert(n);
+    if (index >= mask.size())  // all elements on the part matched
     {
-      free_rec(n);
-      return nullptr;
+      return n;
     }
-    if (!n)
+
+    if (!mask[index])  // empty position in the added vector
     {
-      n = new IndexTrieNode();
-      n->d_value = members[index];
+      auto blank = n->d_blank ? n->d_blank : new IndexTrieNode();
+      n->d_blank = add_rec(blank, index + 1, mask, values);
+      return n;
     }
-    for (size_t j = 0; j < n->d_children.size(); j++)
+
+    for (auto& edge : n->d_children)
     {
-      if (n->d_children[j]->d_value == members[index])
+      if (edge.first == values[index])
       {
-        n->d_children[j] = add_rec(n->d_children[j], index + 1, members);
+        // value already amongst the children
+        edge.second = add_rec(edge.second, index + 1, mask, values);
         return n;
       }
     }
-    n->d_children.push_back(add_rec(nullptr, index + 1, members));
+    // new child needs to be added
+    auto child = add_rec(new IndexTrieNode(), index + 1, mask, values);
+    n->d_children.push_back(std::make_pair(values[index], child));
     return n;
   }
 };

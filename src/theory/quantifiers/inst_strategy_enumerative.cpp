@@ -199,21 +199,28 @@ bool InstStrategyEnum::process(Node quantifier, bool fullEffort, bool isRd)
                             isRd,
                             &d_tteContext));
   std::vector<Node> terms;
+  std::vector<bool> failMask;
   Instantiate* const ie = d_quantEngine->getInstantiate();
   for (enumerator->init(); enumerator->hasNext();)
   {
-    if (d_quantEngine->inConflict())
+    if (d_qstate.isInConflict())
     {
       // could be conflicting for an internal reason
       return false;
     }
     enumerator->next(terms);
     // try instantiation
-    if (ie->addInstantiation(quantifier, terms))
+    failMask.clear();
+    /* if (ie->addInstantiation(quantifier, terms)) */
+    if (ie->addInstantiationExpFail(quantifier, terms, failMask, false))
     {
       Trace("inst-alg-rd") << "Success!" << std::endl;
       ++(d_quantEngine->d_statistics.d_instantiations_guess);
       return true;
+    }
+    else
+    {
+      enumerator->failureReason(failMask);
     }
   }
   return false;
