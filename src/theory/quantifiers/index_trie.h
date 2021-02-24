@@ -32,16 +32,7 @@ class IndexTrie
 
   virtual ~IndexTrie() { free_rec(d_root); }
   bool isEmpty() const { return d_root->d_children.empty(); }
-  void add(const std::vector<bool>& mask, const std::vector<size_t>& values)
-  {
-    const size_t cardinality = std::count(mask.begin(), mask.end(), true);
-    if (d_ignoreFullySpecified && cardinality == mask.size())
-    {
-      return;
-    }
-
-    d_root = add_rec(d_root, 0, mask, values);
-  }
+  void add(const std::vector<bool>& mask, const std::vector<size_t>& values);
   /**  Check if the given set of indices is subsumed by something present in the
    * trie. */
   bool find(const std::vector<size_t>& members) const
@@ -61,6 +52,7 @@ class IndexTrie
 
   IndexTrieNode* add_rec(IndexTrieNode* n,
                          size_t index,
+                         size_t cardinality,
                          const std::vector<bool>& mask,
                          const std::vector<size_t>& values);
 };
