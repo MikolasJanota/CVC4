@@ -1,9 +1,18 @@
-/*
- * File:  src/theory/quantifiers/index_trie.h
- * Author:  mikolas
- * Created on:  Thu Feb 18 15:20:13 CET 2021
- * Copyright (C) 2021, Mikolas Janota
- */
+/*********************                                                        */
+/*! \file index_trie.cpp
+ ** \verbatim
+ ** Top contributors (to current version):
+ **   Mikolas Janota
+ ** This file is part of the CVC4 project.
+ ** Copyright (c) 2009-2020 by the authors listed in the file AUTHORS
+ ** in the top-level source directory and their institutional affiliations.
+ ** All rights reserved.  See the file COPYING in the top-level source
+ ** directory for licensing information.\endverbatim
+ **
+ ** \brief Implementation of a trie that store subsets of tuples of term indices
+ ** that are not yielding  useful instantiations. of quantifier instantiation.
+ ** This is used in the term_tuple_enumerator.
+ **/
 #ifndef INDEX_TRIE_H_45
 #define INDEX_TRIE_H_45
 #include <algorithm>
@@ -11,6 +20,7 @@
 #include <vector>
 
 #include "base/check.h"
+
 namespace CVC4 {
 struct IndexTrieNode
 {
@@ -30,31 +40,36 @@ class IndexTrie
   {
   }
 
-  virtual ~IndexTrie() { free_rec(d_root); }
-  bool isEmpty() const { return d_root->d_children.empty(); }
+  virtual ~IndexTrie() { freeRec(d_root); }
+
+  /**  Add a tuple of values into the trie  masked by a bitmask. */
   void add(const std::vector<bool>& mask, const std::vector<size_t>& values);
-  /**  Check if the given set of indices is subsumed by something present in the
-   * trie. */
-  bool find(const std::vector<size_t>& members) const
+
+  /** Check if the given set of indices is subsumed by something present in the
+   * trie. If it is subsumed,  give the maximum non-blank index. */
+  bool find(const std::vector<size_t>& members,
+            /*out*/ size_t& maxNonBlank) const
   {
-    return find_rec(d_root, 0, members);
+    maxNonBlank = 0;
+    return findRec(d_root, 0, members, maxNonBlank);
   }
 
  private:
   const bool d_ignoreFullySpecified;
   IndexTrieNode* d_root;
 
-  void free_rec(IndexTrieNode* n);
+  void freeRec(IndexTrieNode* n);
 
-  bool find_rec(const IndexTrieNode* n,
-                size_t index,
-                const std::vector<size_t>& members) const;
+  bool findRec(const IndexTrieNode* n,
+               size_t index,
+               const std::vector<size_t>& members,
+               size_t& maxNonBlank) const;
 
-  IndexTrieNode* add_rec(IndexTrieNode* n,
-                         size_t index,
-                         size_t cardinality,
-                         const std::vector<bool>& mask,
-                         const std::vector<size_t>& values);
+  IndexTrieNode* addRec(IndexTrieNode* n,
+                        size_t index,
+                        size_t cardinality,
+                        const std::vector<bool>& mask,
+                        const std::vector<size_t>& values);
 };
 
 }  // namespace CVC4

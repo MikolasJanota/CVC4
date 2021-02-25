@@ -1,9 +1,17 @@
-/*
- * File:  term_tuple_enumerator.h
- * Author:  mikolas
- * Created on:  Fri Dec 18 14:26:54 CET 2020
- * Copyright (C) 2020, Mikolas Janota
- */
+/*********************                                                        */
+/*! \file  term_tuple_enumerator.cpp
+ ** \verbatim
+ ** Top contributors (to current version):
+ **   Mikolas Janota
+ ** This file is part of the CVC4 project.
+ ** Copyright (c) 2009-2020 by the authors listed in the file AUTHORS
+ ** in the top-level source directory and their institutional affiliations.
+ ** All rights reserved.  See the file COPYING in the top-level source
+ ** directory for licensing information.\endverbatim
+ **
+ ** \brief Implementation of an enumeration of tuples of terms for the purpose
+ *of quantifier instantiation.
+ **/
 #ifndef TERM_TUPLE_ENUMERATOR_H_7640
 #define TERM_TUPLE_ENUMERATOR_H_7640
 #include <cstddef>

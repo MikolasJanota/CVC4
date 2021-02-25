@@ -1,9 +1,18 @@
-/*
- * File:  src/theory/quantifiers/index_trie.cpp
- * Author:  mikolas
- * Created on:  Wed Feb 24 09:32:17 CET 2021
- * Copyright (C) 2021, Mikolas Janota
- */
+/*********************                                                        */
+/*! \file index_trie.cpp
+ ** \verbatim
+ ** Top contributors (to current version):
+ **   Mikolas Janota
+ ** This file is part of the CVC4 project.
+ ** Copyright (c) 2009-2020 by the authors listed in the file AUTHORS
+ ** in the top-level source directory and their institutional affiliations.
+ ** All rights reserved.  See the file COPYING in the top-level source
+ ** directory for licensing information.\endverbatim
+ **
+ ** \brief Implementation of a trie that store subsets of tuples of term indices
+ ** that are not yielding  useful instantiations. of quantifier instantiation.
+ ** This is used in the term_tuple_enumerator.
+ **/
 #include "theory/quantifiers/index_trie.h"
 
 namespace CVC4 {
@@ -16,10 +25,10 @@ void IndexTrie::add(const std::vector<bool>& mask,
     return;
   }
 
-  d_root = add_rec(d_root, 0, cardinality, mask, values);
+  d_root = addRec(d_root, 0, cardinality, mask, values);
 }
 
-void IndexTrie::free_rec(IndexTrieNode* n)
+void IndexTrie::freeRec(IndexTrieNode* n)
 {
   if (!n)
   {
@@ -27,27 +36,30 @@ void IndexTrie::free_rec(IndexTrieNode* n)
   }
   for (auto c : n->d_children)
   {
-    free_rec(c.second);
+    freeRec(c.second);
   }
-  free_rec(n->d_blank);
+  freeRec(n->d_blank);
   delete n;
 }
 
-bool IndexTrie::find_rec(const IndexTrieNode* n,
-                         size_t index,
-                         const std::vector<size_t>& members) const
+bool IndexTrie::findRec(const IndexTrieNode* n,
+                        size_t index,
+                        const std::vector<size_t>& members,
+                        size_t& maxNonBlank) const
 {
   if (!n || index >= members.size())
   {
     return true;  // all elements of members matched
   }
-  if (n->d_blank && find_rec(n->d_blank, index + 1, members))
+  if (n->d_blank && findRec(n->d_blank, index + 1, members, maxNonBlank))
   {
     return true;  // found in the blank branch
   }
+  maxNonBlank = index;
   for (const auto& c : n->d_children)
   {
-    if (c.first == members[index] && find_rec(c.second, index + 1, members))
+    if (c.first == members[index]
+        && findRec(c.second, index + 1, members, maxNonBlank))
     {
       return true;  // found in the matching subtree
     }
@@ -55,11 +67,11 @@ bool IndexTrie::find_rec(const IndexTrieNode* n,
   return false;
 }
 
-IndexTrieNode* IndexTrie::add_rec(IndexTrieNode* n,
-                                  size_t index,
-                                  size_t cardinality,
-                                  const std::vector<bool>& mask,
-                                  const std::vector<size_t>& values)
+IndexTrieNode* IndexTrie::addRec(IndexTrieNode* n,
+                                 size_t index,
+                                 size_t cardinality,
+                                 const std::vector<bool>& mask,
+                                 const std::vector<size_t>& values)
 {
   if (!n)
   {
@@ -67,7 +79,7 @@ IndexTrieNode* IndexTrie::add_rec(IndexTrieNode* n,
   }
   if (cardinality == 0)  // all blanks, all strings match
   {
-    free_rec(n);
+    freeRec(n);
     return nullptr;
   }
 
@@ -76,7 +88,7 @@ IndexTrieNode* IndexTrie::add_rec(IndexTrieNode* n,
   if (!mask[index])  // blank position in the added vector
   {
     auto blank = n->d_blank ? n->d_blank : new IndexTrieNode();
-    n->d_blank = add_rec(blank, index + 1, cardinality, mask, values);
+    n->d_blank = addRec(blank, index + 1, cardinality, mask, values);
     return n;
   }
   Assert(cardinality);
@@ -87,13 +99,13 @@ IndexTrieNode* IndexTrie::add_rec(IndexTrieNode* n,
     {
       // value already amongst the children
       edge.second =
-          add_rec(edge.second, index + 1, cardinality - 1, mask, values);
+          addRec(edge.second, index + 1, cardinality - 1, mask, values);
       return n;
     }
   }
   // new child needs to be added
   auto child =
-      add_rec(new IndexTrieNode(), index + 1, cardinality - 1, mask, values);
+      addRec(new IndexTrieNode(), index + 1, cardinality - 1, mask, values);
   n->d_children.push_back(std::make_pair(values[index], child));
   return n;
 }
