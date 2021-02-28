@@ -34,17 +34,18 @@ namespace CVC4 {
 
 // TODO: kosher?
 template <typename T>
-CVC4ostream& operator<<(CVC4ostream& out, const std::vector<T>& v)
+static CVC4ostream& operator<<(CVC4ostream& out, const std::vector<T>& v)
 {
   out << "[ ";
   std::copy(v.begin(), v.end(), std::ostream_iterator<T>(out, " "));
   return out << "]";
 }
 
-void traceMaskedVector(const char* trace,
-                       const char* name,
-                       const std::vector<bool>& mask,
-                       const std::vector<size_t>& values)
+/** Tracing purposes, printing and mask that are of indices. */
+static void traceMaskedVector(const char* trace,
+                              const char* name,
+                              const std::vector<bool>& mask,
+                              const std::vector<size_t>& values)
 {
   Assert(mask.size() == values.size());
   Trace(trace) << name << " [ ";
@@ -64,9 +65,23 @@ void traceMaskedVector(const char* trace,
 
 namespace theory {
 namespace quantifiers {
+/**
+ * Base class for enumerators of tuples of terms for the purpose of
+ * quantification instantiation. The tuples are represented as tuples of
+ * indices of  terms, where the tuple has as many elements as there are
+ * quantified variables in the considered quantifier.
+ *
+ * Like so, we see a tuple as a number, where the digits may have different
+ * ranges. The most significant digits are stored first.
+ *
+ * Tuples are enumerated  in a lexicographic order in stages. There are 2
+ * possible strategies, either  all tuples in a given stage have the same sum of
+ * digits, or, the maximum  over these digits is the same.
+ * */
 class TermTupleEnumeratorBase : public TermTupleEnumeratorInterface
 {
  public:
+  /** Initialize the class with the quantifier to be instantiated. */
   TermTupleEnumeratorBase(Node quantifier,
                           bool fullEffort,
                           bool increaseSum,
@@ -82,6 +97,7 @@ class TermTupleEnumeratorBase : public TermTupleEnumeratorInterface
   {
     d_changePrefix = d_variableCount;
   }
+
   virtual ~TermTupleEnumeratorBase() = default;
 
   // implementation of the TermTupleEnumeratorInterface
@@ -155,7 +171,7 @@ class TermTupleEnumeratorBase : public TermTupleEnumeratorInterface
   void runLearning(size_t variableIx);
   virtual Node getTerm(size_t variableIx,
                        size_t term_index) CVC4_WARN_UNUSED_RESULT = 0;
-};
+};  // namespace quantifiers
 
 /**
  * Enumerate ground terms as they come from the term database.
@@ -170,6 +186,7 @@ class TermTupleEnumeratorBasic : public TermTupleEnumeratorBase
       : TermTupleEnumeratorBase(quantifier, fullEffort, increaseSum, context)
   {
   }
+
   virtual ~TermTupleEnumeratorBasic() = default;
 
  protected:
@@ -264,7 +281,7 @@ void TermTupleEnumeratorBase::init()
   bool anyTerms = false;
   const auto currentPhase = d_context->getCurrentPhase(d_quantifier);
   // prepare a sequence of terms for each quantified variable
-  // additionally initialized the cache for variable types
+  // additionally initialize the cache for variable types
   for (size_t variableIx = 0; variableIx < d_variableCount; variableIx++)
   {
     d_typeCache.push_back(d_quantifier[0][variableIx].getType());
@@ -312,13 +329,7 @@ bool TermTupleEnumeratorBase::hasNext()
   }
 
   // try to find the next combination
-  if (nextCombination())
-  {
-    return true;
-  }
-
-  // we ran out of stages
-  return d_hasNext = false;
+  return d_hasNext = nextCombination();
 }
 
 void TermTupleEnumeratorBase::failureReason(const std::vector<bool>& mask)
@@ -328,10 +339,11 @@ void TermTupleEnumeratorBase::failureReason(const std::vector<bool>& mask)
     traceMaskedVector("inst-alg", "failureReason", mask, d_termIndex);
   }
   d_disabledCombinations.add(mask, d_termIndex);  // record failure
+  // update change prefix accordingly
   for (d_changePrefix = mask.size();
        d_changePrefix && !mask[d_changePrefix - 1];
        d_changePrefix--)
-    ;  //  update change prefix accordingly
+    ;
 }
 
 void TermTupleEnumeratorBase::next(/*out*/ std::vector<Node>& terms)
@@ -406,20 +418,21 @@ bool TermTupleEnumeratorBase::nextCombination()
     Trace("inst-alg-rd") << "changePrefix " << d_changePrefix << std::endl;
     if (!nextCombinationInternal() && !increaseStage())
     {
-      return false;
+      return false;  // ran out of combinations
     }
     if (!d_disabledCombinations.find(d_termIndex, d_changePrefix))
     {
-      return true;
+      return true;  // current combination vetted by disabled combinations
     }
   }
 }
 
-/** Move onto the next combination. */
+/** Move onto the next combination, depending on the strategy. */
 bool TermTupleEnumeratorBase::nextCombinationInternal()
 {
   return d_context->d_increaseSum ? nextCombinationSum() : nextCombinationMax();
 }
+
 /** Find the next lexicographically smallest combination of terms that change
  * on the change prefix and their sum is equal to d_currentStage. */
 bool TermTupleEnumeratorBase::nextCombinationMax()
