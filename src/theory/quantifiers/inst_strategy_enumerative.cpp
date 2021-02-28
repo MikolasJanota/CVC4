@@ -192,6 +192,19 @@ void InstStrategyEnum::check(Theory::Effort e, QEffort quant_e)
 
 bool InstStrategyEnum::process(Node quantifier, bool fullEffort, bool isRd)
 {
+  // ignore if constant true (rare case of non-standard quantifier whose body
+  // is rewritten to true)
+  if (quantifier[1].isConst() && quantifier[1].getConst<bool>())
+  {
+    return false;
+  }
+
+  TermTupleEnumeratorContext ttec;
+  ttec.d_quantEngine = d_quantEngine;
+  ttec.d_rd = d_rd;
+  ttec.d_fullEffort = fullEffort;
+  ttec.d_increaseSum = options::fullSaturateSum();
+  ttec.d_isRd = isRd;
   std::unique_ptr<TermTupleEnumeratorInterface> enumerator(
       mkTermTupleEnumerator(quantifier,
                             fullEffort,

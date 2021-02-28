@@ -41,6 +41,27 @@ CVC4ostream& operator<<(CVC4ostream& out, const std::vector<T>& v)
   return out << "]";
 }
 
+void traceMaskedVector(const char* trace,
+                       const char* name,
+                       const std::vector<bool>& mask,
+                       const std::vector<size_t>& values)
+{
+  Assert(mask.size() == values.size());
+  Trace(trace) << name << " [ ";
+  for (size_t variableIx = 0; variableIx < mask.size(); variableIx++)
+  {
+    if (mask[variableIx])
+    {
+      Trace(trace) << values[variableIx] << " ";
+    }
+    else
+    {
+      Trace(trace) << "_ ";
+    }
+  }
+  Trace(trace) << "]" << std::endl;
+}
+
 namespace theory {
 namespace quantifiers {
 class TermTupleEnumeratorBase : public TermTupleEnumeratorInterface
@@ -59,7 +80,7 @@ class TermTupleEnumeratorBase : public TermTupleEnumeratorInterface
         d_disabledCombinations(
             true)  // do not record combinations with no blanks
   {
-    d_maxNonBlank = d_variableCount - 1;
+    d_changePrefix = d_variableCount;
   }
   virtual ~TermTupleEnumeratorBase() = default;
 
@@ -97,10 +118,10 @@ class TermTupleEnumeratorBase : public TermTupleEnumeratorInterface
   bool d_hasNext;
   std::vector<std::vector<size_t> > d_termPermutations;
   /* Allow larger indices from now on */
-  /**the maximum index of a digit net needs to be changed in the upcoming
-  combination, this translates to the least significant digit that needs to be
-  changed */
-  size_t d_maxNonBlank;
+  /** the length of the prefix that has to be changed in the next
+  combination, i.e.  the number of the most significant digits that need to be
+  changed in order to escape a  useless instantiation */
+  size_t d_changePrefix;
   /** Move onto the next stage */
   bool increaseStage();
   /** Move onto the next stage, sum strategy. */
@@ -109,13 +130,15 @@ class TermTupleEnumeratorBase : public TermTupleEnumeratorInterface
   bool increaseStageMax();
   /** Move on in the current stage */
   bool nextCombination();
-  /** Move onto the next combination, make sure that at least changeDigit is
-   * changed. */
-  bool nextCombinationInternal(size_t changeDigit);
-  /**  Move on to the next combination, preserving the sum of digits. */
-  bool nextCombinationSum(size_t changeDigit);
-  /**  Move on to the next combination, preserving the maximum of digits. */
-  bool nextCombinationMax(size_t changeDigit);
+  /** Move onto the next combination. */
+  bool nextCombinationInternal();
+  /** Find the next lexicographically smallest combination of terms that change
+   * on the change prefix, each digit is within the current state,  and there is
+   * at least one digit not in the previous stage. */
+  bool nextCombinationSum();
+  /** Find the next lexicographically smallest combination of terms that change
+   * on the change prefix and their sum is equal to d_currentStage. */
+  bool nextCombinationMax();
   /** Set up terms for given variable.  */
   virtual size_t prepareTerms(size_t variableIx) = 0;
   /**
@@ -134,6 +157,9 @@ class TermTupleEnumeratorBase : public TermTupleEnumeratorInterface
                        size_t term_index) CVC4_WARN_UNUSED_RESULT = 0;
 };
 
+/**
+ * Enumerate ground terms as they come from the term database.
+ */
 class TermTupleEnumeratorBasic : public TermTupleEnumeratorBase
 {
  public:
@@ -147,11 +173,15 @@ class TermTupleEnumeratorBasic : public TermTupleEnumeratorBase
   virtual ~TermTupleEnumeratorBasic() = default;
 
  protected:
-  std::map<TypeNode, std::vector<Node> > d_term_db_list;
+  /**  a list of terms for each type */
+  std::map<TypeNode, std::vector<Node> > d_termDbList;
   virtual size_t prepareTerms(size_t variableIx) override;
   virtual Node getTermCore(size_t variableIx, size_t term_index) override;
 };
 
+/**
+ * Enumerate ground terms according to the relevant domain class.
+ */
 class TermTupleEnumeratorRD : public TermTupleEnumeratorBase
 {
  public:
@@ -225,9 +255,7 @@ void TermTupleEnumeratorBase::init()
   d_stageCount = 1;  // in the case of full effort we do at least one stage
   d_termPermutations.resize(d_variableCount);
 
-  // ignore if constant true (rare case of non-standard quantifier whose body is
-  // rewritten to true) TODO: should this be here or one level above?
-  if (d_quantifier[1].isConst() && d_quantifier[1].getConst<bool>())
+  if (d_variableCount == 0)
   {
     d_hasNext = false;
     return;
@@ -297,28 +325,13 @@ void TermTupleEnumeratorBase::failureReason(const std::vector<bool>& mask)
 {
   if (Trace.isOn("inst-alg"))
   {
-    Trace("inst-alg") << "failureReason [ ";
-    for (size_t variableIx = 0; variableIx < d_variableCount; variableIx++)
-    {
-      if (mask[variableIx])
-      {
-        Trace("inst-alg") << d_termIndex[variableIx] << " ";
-      }
-      else
-      {
-        Trace("inst-alg") << "_ ";
-      }
-    }
-    Trace("inst-alg") << "]" << std::endl;
+    traceMaskedVector("inst-alg", "failureReason", mask, d_termIndex);
   }
-  d_disabledCombinations.add(mask, d_termIndex);
-  for (d_maxNonBlank = mask.size(); d_maxNonBlank--;)
-  {
-    if (mask[d_maxNonBlank])
-    {
-      break;
-    }
-  }
+  d_disabledCombinations.add(mask, d_termIndex);  // record failure
+  for (d_changePrefix = mask.size();
+       d_changePrefix && !mask[d_changePrefix - 1];
+       d_changePrefix--)
+    ;  //  update change prefix accordingly
 }
 
 void TermTupleEnumeratorBase::next(/*out*/ std::vector<Node>& terms)
@@ -357,7 +370,7 @@ bool TermTupleEnumeratorBase::increaseStageSum()
 
 bool TermTupleEnumeratorBase::increaseStage()
 {
-  d_maxNonBlank = d_variableCount - 1;  // simply reset upon increase stage
+  d_changePrefix = d_variableCount;  // simply reset upon increase stage
   return d_context->d_increaseSum ? increaseStageSum() : increaseStageMax();
 }
 
@@ -390,42 +403,76 @@ bool TermTupleEnumeratorBase::nextCombination()
 {
   while (true)
   {
-    Trace("inst-alg-rd") << "d_maxNonBlank " << d_maxNonBlank << std::endl;
-    if (!nextCombinationInternal(d_maxNonBlank) && !increaseStage())
+    Trace("inst-alg-rd") << "changePrefix " << d_changePrefix << std::endl;
+    if (!nextCombinationInternal() && !increaseStage())
     {
       return false;
     }
-    if (!d_disabledCombinations.find(d_termIndex, d_maxNonBlank))
+    if (!d_disabledCombinations.find(d_termIndex, d_changePrefix))
     {
       return true;
     }
   }
 }
 
-bool TermTupleEnumeratorBase::nextCombinationInternal(size_t changeDigit)
+/** Move onto the next combination. */
+bool TermTupleEnumeratorBase::nextCombinationInternal()
 {
-  return d_context->d_increaseSum ? nextCombinationSum(changeDigit)
-                                  : nextCombinationMax(changeDigit);
+  return d_context->d_increaseSum ? nextCombinationSum() : nextCombinationMax();
 }
-
-bool TermTupleEnumeratorBase::nextCombinationMax(size_t changeDigit)
+/** Find the next lexicographically smallest combination of terms that change
+ * on the change prefix and their sum is equal to d_currentStage. */
+bool TermTupleEnumeratorBase::nextCombinationMax()
 {
-  // look for the least significant digit, starting at changeDigit,
+  // look for the least significant digit, within change prefix,
   // that can be increased
-  for (size_t digit = changeDigit + 1; digit--;)
+  bool found = false;
+  size_t increaseDigit = d_changePrefix;
+  while (!found && increaseDigit--)
   {
-    const size_t new_value = d_termIndex[digit] + 1;
-    if (new_value < d_termsSizes[digit] && new_value <= d_stage)
+    const size_t new_value = d_termIndex[increaseDigit] + 1;
+    if (new_value < d_termsSizes[increaseDigit] && new_value <= d_currentStage)
     {
-      d_termIndex[digit] = new_value;
-      std::fill(d_termIndex.begin() + digit + 1, d_termIndex.end(), 0);
-      return true;
+      d_termIndex[increaseDigit] = new_value;
+      // send everything after the increased digit to 0
+      std::fill(d_termIndex.begin() + increaseDigit + 1, d_termIndex.end(), 0);
+      found = true;
     }
   }
-  return false;
+  if (!found)
+  {
+    return false;  // nothing to increase
+  }
+  // check if the combination has at least one digit in the current stage
+  bool inStage = false;
+  for (size_t i = increaseDigit + 1; !inStage && i--;)
+  {
+    inStage = d_termIndex[i] >= d_currentStage;
+  }
+  if (!inStage)  // look for a digit that can increase to current stage
+  {
+    for (increaseDigit = d_variableCount, found = false;
+         !found && increaseDigit--;)
+    {
+      found = d_termsSizes[increaseDigit] > d_currentStage;
+    }
+    if (!found)
+    {
+      return false;  // nothing to increase to the current stage
+    }
+    Assert(d_termsSizes[increaseDigit] > d_currentStage
+           && d_termIndex[increaseDigit] < d_currentStage);
+    d_termIndex[increaseDigit] = d_currentStage;
+    // send everything after the increased digit to 0
+    std::fill(d_termIndex.begin() + increaseDigit + 1, d_termIndex.end(), 0);
+  }
+  return true;
 }
 
-bool TermTupleEnumeratorBase::nextCombinationSum(size_t changeDigit)
+/** Find the next lexicographically smallest combination of terms that change
+ * on the change prefix, each digit is within the current state,  and there is
+ * at least one digit not in the previous stage. */
+bool TermTupleEnumeratorBase::nextCombinationSum()
 {
   size_t suffixSum = 0;
   bool found = false;
@@ -434,7 +481,7 @@ bool TermTupleEnumeratorBase::nextCombinationSum(size_t changeDigit)
   {
     const size_t newValue = d_termIndex[increaseDigit] + 1;
     found = suffixSum > 0 && newValue < d_termsSizes[increaseDigit]
-            && increaseDigit <= changeDigit;
+            && increaseDigit < d_changePrefix;
     if (found)
     {
       // digit can be increased and suffix can be decreased
@@ -449,7 +496,7 @@ bool TermTupleEnumeratorBase::nextCombinationSum(size_t changeDigit)
     return false;
   }
   Assert(suffixSum > 0);
-  // increaseDigit went up by one,  hence, distribute (suffixSum - 1) in the
+  // increaseDigit went up by one, hence, distribute (suffixSum - 1) in the
   // least significant digits
   suffixSum--;
   for (size_t digit = d_termIndex.size(); suffixSum > 0 && digit--;)
@@ -533,36 +580,35 @@ size_t TermTupleEnumeratorBasic::prepareTerms(size_t variableIx)
   QuantifiersState& qs = d_context->d_quantEngine->getState();
   const TypeNode type_node = d_typeCache[variableIx];
 
-  if (!ContainsKey(d_term_db_list, type_node))
+  if (!ContainsKey(d_termDbList, type_node))
   {
     const size_t ground_terms_count = tdb->getNumTypeGroundTerms(type_node);
-    std::map<Node, Node> reps_found;
+    std::map<Node, Node> repsFound;
     for (size_t j = 0; j < ground_terms_count; j++)
     {
       Node gt = tdb->getTypeGroundTerm(type_node, j);
       if (!options::cegqi() || !quantifiers::TermUtil::hasInstConstAttr(gt))
       {
         Node rep = qs.getRepresentative(gt);
-        if (reps_found.find(rep) != reps_found.end())
+        if (repsFound.find(rep) == repsFound.end())
         {
-          continue;
+          repsFound[rep] = gt;
+          d_termDbList[type_node].push_back(gt);
         }
-        reps_found[rep] = gt;
-        d_term_db_list[type_node].push_back(gt);
       }
     }
   }
 
   Trace("inst-alg-rd") << "Instantiation Terms for child " << variableIx << ": "
-                       << d_term_db_list[type_node] << std::endl;
-  return d_term_db_list[type_node].size();
+                       << d_termDbList[type_node] << std::endl;
+  return d_termDbList[type_node].size();
 }
 
 Node TermTupleEnumeratorBasic::getTermCore(size_t variableIx, size_t term_index)
 {
   const TypeNode type_node = d_typeCache[variableIx];
-  Assert(term_index < d_term_db_list[type_node].size());
-  return d_term_db_list[type_node][term_index];
+  Assert(term_index < d_termDbList[type_node].size());
+  return d_termDbList[type_node][term_index];
 }
 
 }  // namespace quantifiers

@@ -48,10 +48,10 @@ class IndexTrie
   /** Check if the given set of indices is subsumed by something present in the
    * trie. If it is subsumed,  give the maximum non-blank index. */
   bool find(const std::vector<size_t>& members,
-            /*out*/ size_t& maxNonBlank) const
+            /*out*/ size_t& nonBlankLength) const
   {
-    maxNonBlank = 0;
-    return findRec(d_root, 0, members, maxNonBlank);
+    nonBlankLength = 0;
+    return findRec(d_root, 0, members, nonBlankLength);
   }
 
  private:
@@ -63,7 +63,7 @@ class IndexTrie
   bool findRec(const IndexTrieNode* n,
                size_t index,
                const std::vector<size_t>& members,
-               size_t& maxNonBlank) const;
+               size_t& nonBlankLength) const;
 
   IndexTrieNode* addRec(IndexTrieNode* n,
                         size_t index,

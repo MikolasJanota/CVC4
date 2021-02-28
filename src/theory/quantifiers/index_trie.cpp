@@ -45,21 +45,21 @@ void IndexTrie::freeRec(IndexTrieNode* n)
 bool IndexTrie::findRec(const IndexTrieNode* n,
                         size_t index,
                         const std::vector<size_t>& members,
-                        size_t& maxNonBlank) const
+                        size_t& nonBlankLength) const
 {
   if (!n || index >= members.size())
   {
     return true;  // all elements of members matched
   }
-  if (n->d_blank && findRec(n->d_blank, index + 1, members, maxNonBlank))
+  if (n->d_blank && findRec(n->d_blank, index + 1, members, nonBlankLength))
   {
     return true;  // found in the blank branch
   }
-  maxNonBlank = index;
+  nonBlankLength = index + 1;
   for (const auto& c : n->d_children)
   {
     if (c.first == members[index]
-        && findRec(c.second, index + 1, members, maxNonBlank))
+        && findRec(c.second, index + 1, members, nonBlankLength))
     {
       return true;  // found in the matching subtree
     }
