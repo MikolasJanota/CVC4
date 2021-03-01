@@ -456,8 +456,9 @@ bool TermTupleEnumeratorBase::nextCombinationMax()
   {
     return false;  // nothing to increase
   }
-  // check if the combination has at least one digit in the current stage
-  bool inStage = false;
+  // check if the combination has at least one digit in the current stage,
+  // since at least one digit was increased, no need for this in stage 1
+  bool inStage = d_currentStage <= 1;
   for (size_t i = increaseDigit + 1; !inStage && i--;)
   {
     inStage = d_termIndex[i] >= d_currentStage;
