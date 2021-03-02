@@ -172,7 +172,7 @@ class TermTupleEnumeratorBase : public TermTupleEnumeratorInterface
   void runLearning(size_t variableIx);
   virtual Node getTerm(size_t variableIx,
                        size_t term_index) CVC4_WARN_UNUSED_RESULT = 0;
-};  // namespace quantifiers
+};
 
 /**
  * Enumerate ground terms as they come from the term database.
