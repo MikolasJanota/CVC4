@@ -213,7 +213,7 @@ bool InstStrategyEnum::process(Node quantifier, bool fullEffort, bool isRd)
                             &d_tteContext));
   std::vector<Node> terms;
   std::vector<bool> failMask;
-  Instantiate* const ie = d_quantEngine->getInstantiate();
+  Instantiate* ie = d_quantEngine->getInstantiate();
   for (enumerator->init(); enumerator->hasNext();)
   {
     if (d_qstate.isInConflict())
