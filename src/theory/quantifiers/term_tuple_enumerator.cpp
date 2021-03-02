@@ -24,13 +24,14 @@
 
 #include "base/map_util.h"
 #include "base/output.h"
+#include "options/quantifiers_options.h"
 #include "smt/smt_statistics_registry.h"
 #include "theory/quantifiers/index_trie.h"
 #include "theory/quantifiers/quant_module.h"
+#include "theory/quantifiers/relevant_domain.h"
 #include "theory/quantifiers/term_util.h"
 #include "theory/quantifiers_engine.h"
 #include "util/statistics_registry.h"
-#include "theory/quantifiers/relevant_domain.h"
 
 namespace CVC4 {
 
