@@ -1,5 +1,5 @@
 /*********************                                                        */
-/*! \file index_trie.cpp
+/*! \file index_trie.h
  ** \verbatim
  ** Top contributors (to current version):
  **   Mikolas Janota
@@ -13,8 +13,8 @@
  ** that are not yielding  useful instantiations. of quantifier instantiation.
  ** This is used in the term_tuple_enumerator.
  **/
-#ifndef INDEX_TRIE_H_45
-#define INDEX_TRIE_H_45
+#ifndef CVC4__THEORY__QUANTIFIERS__INDEX_TRIE_H
+#define CVC4__THEORY__QUANTIFIERS__INDEX_TRIE_H
 #include <algorithm>
 #include <utility>
 #include <vector>

@@ -12,9 +12,8 @@
  ** \brief Implementation of an enumeration of tuples of terms for the purpose
  *of quantifier instantiation.
  **/
-#ifndef TERM_TUPLE_ENUMERATOR_H_7640
-#define TERM_TUPLE_ENUMERATOR_H_7640
-#include <cstddef>
+#ifndef CVC4__THEORY__QUANTIFIERS__TERM_TUPLE_ENUMERATOR_H
+#define CVC4__THEORY__QUANTIFIERS__TERM_TUPLE_ENUMERATOR_H
 #include <vector>
 
 #include "cvc4_public.h"
