@@ -28,11 +28,12 @@
 #include "theory/quantifiers/index_trie.h"
 #include "theory/quantifiers/quant_module.h"
 #include "theory/quantifiers/term_util.h"
+#include "theory/quantifiers_engine.h"
 #include "util/statistics_registry.h"
+#include "theory/quantifiers/relevant_domain.h"
 
 namespace CVC4 {
 
-// TODO: kosher?
 template <typename T>
 static CVC4ostream& operator<<(CVC4ostream& out, const std::vector<T>& v)
 {
@@ -41,7 +42,7 @@ static CVC4ostream& operator<<(CVC4ostream& out, const std::vector<T>& v)
   return out << "]";
 }
 
-/** Tracing purposes, printing and mask that are of indices. */
+/** Tracing purposes, printing a masked vector of indices. */
 static void traceMaskedVector(const char* trace,
                               const char* name,
                               const std::vector<bool>& mask,

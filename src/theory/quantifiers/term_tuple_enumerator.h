@@ -15,16 +15,31 @@
 #ifndef CVC4__THEORY__QUANTIFIERS__TERM_TUPLE_ENUMERATOR_H
 #define CVC4__THEORY__QUANTIFIERS__TERM_TUPLE_ENUMERATOR_H
 #include <vector>
+#include <map>
 
-#include "cvc4_public.h"
 #include "smt/smt_statistics_registry.h"
 #include "theory/quantifiers/ml.h"
-#include "theory/quantifiers/relevant_domain.h"
-#include "theory/quantifiers_engine.h"
+#include "expr/node.h"
 
 namespace CVC4 {
 namespace theory {
+
+class QuantifiersEngine;
+
 namespace quantifiers {
+
+class RelevantDomain;
+
+/**  Interface for enumeration of tuples of terms.
+ *
+ * The interface should be used as follows. Firstly, init is called, then,
+ * repeatedly,  verify if there are any combinations left by calling hasNext
+ * and obtaining the next combination by calling next.
+ *
+ *  Optionally, if the  most recent combination is determined to be undesirable
+ * (for whatever reason), the method failureReason is used to indicate which
+ *  positions of the tuple are responsible for the said failure.
+ */
 class TermTupleEnumeratorInterface
 {
  public:
@@ -86,6 +101,24 @@ struct TermTupleEnumeratorContext
   }
 };
 
+/**  A function to construct a tuple enumerator.
+ *
+ * Currently we support the enumerators based on the following idea.
+ * The tuples are represented as tuples of
+ * indices of  terms, where the tuple has as many elements as there are
+ * quantified variables in the considered quantifier.
+ *
+ * Like so, we see a tuple as a number, where the digits may have different
+ * ranges. The most significant digits are stored first.
+ *
+ * Tuples are enumerated  in a lexicographic order in stages. There are 2
+ * possible strategies, either  all tuples in a given stage have the same sum of
+ * digits, or, the maximum  over these digits is the same (controlled by
+ * d_increaseSum).
+ *
+ * Further, an enumerator  either draws ground terms from the term database or
+ * using the relevant domain class  (controlled by d_isRd).
+ */
 TermTupleEnumeratorInterface* mkTermTupleEnumerator(
     Node quantifier, const TermTupleEnumeratorContext* context);
 

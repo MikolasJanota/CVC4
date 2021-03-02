@@ -16,6 +16,9 @@
 #include "theory/quantifiers/index_trie.h"
 
 namespace CVC4 {
+namespace theory {
+namespace quantifiers {
+
 void IndexTrie::add(const std::vector<bool>& mask,
                     const std::vector<size_t>& values)
 {
@@ -109,5 +112,6 @@ IndexTrieNode* IndexTrie::addRec(IndexTrieNode* n,
   n->d_children.push_back(std::make_pair(values[index], child));
   return n;
 }
+}  // namespace quantifiers
+}  // namespace theory
 }  // namespace CVC4
-
