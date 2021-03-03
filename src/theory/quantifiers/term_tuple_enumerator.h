@@ -55,12 +55,13 @@ class TermTupleEnumeratorInterface
   virtual ~TermTupleEnumeratorInterface() = default;
 };
 
-struct TermInfo
+struct CandidateInfo
 {
-  size_t d_age, d_phase;
-  static TermInfo mk(size_t age, size_t phase)
+  size_t d_age = 0, d_phase = 0;
+  size_t d_tried = 0;
+  static CandidateInfo mk(size_t age, size_t phase)
   {
-    TermInfo rv;
+    CandidateInfo rv;
     rv.d_age = age;
     rv.d_phase = phase;
     return rv;
@@ -70,7 +71,7 @@ struct TermInfo
 struct QuantifierInfo
 {
   size_t d_currentPhase = 0;
-  std::map<Node, TermInfo> d_termInfos;
+  std::vector<std::map<Node, CandidateInfo> > d_candidateInfos;
 };
 
 struct TermTupleEnumeratorGlobal
@@ -81,7 +82,13 @@ struct TermTupleEnumeratorGlobal
   IntStat d_learningCounter;
   size_t increasePhase(Node quantifier);
   size_t getCurrentPhase(Node quantifier) const;
-  bool addTerm(Node quantifier, Node instantiationTerm, size_t phase);
+  QuantifierInfo& getQuantifierInfo(Node quantifier);
+  bool addTerm(Node quantifier,
+               size_t variable,
+               Node instantiationTerm,
+               size_t age,
+               size_t phase);
+  void registerTryCandidate(Node quantifier, size_t child_ix, Node candidate);
   TermTupleEnumeratorGlobal()
       : d_learningTimer("theory::quantifiers::fs::timers::learningTimer"),
         d_mlTimer("theory::quantifiers::fs::timers::mlTimer"),
@@ -98,7 +105,6 @@ struct TermTupleEnumeratorGlobal
     smtStatisticsRegistry()->unregisterStat(&d_learningCounter);
   }
 };
-
 
 struct TermTupleEnumeratorContext
 {

@@ -19,6 +19,7 @@
 #include <iterator>
 #include <map>
 #include <numeric>
+#include <utility>
 #include <vector>
 
 #include "base/map_util.h"
@@ -232,19 +233,52 @@ TermTupleEnumeratorInterface* mkTermTupleEnumerator(
                  new TermTupleEnumeratorBasic(quantifier, global, context));
 }
 
+QuantifierInfo& TermTupleEnumeratorGlobal::getQuantifierInfo(Node quantifier)
+{
+  auto i = d_qinfos.find(quantifier);
+  if (i == d_qinfos.end())
+  {
+    QuantifierInfo& qi = d_qinfos[quantifier];
+    qi.d_candidateInfos.resize(quantifier[0].getNumChildren());
+    return qi;
+  }
+  QuantifierInfo& qi = i->second;
+  Assert(qi.d_candidateInfos.size() == quantifier[0].getNumChildren());
+  return qi;
+}
 bool TermTupleEnumeratorGlobal::addTerm(Node quantifier,
+                                        size_t variable,
                                         Node instantiationTerm,
+                                        size_t age,
                                         size_t phase)
 {
-  if (ContainsKey(d_qinfos[quantifier].d_termInfos, instantiationTerm))
+  auto& qi = getQuantifierInfo(quantifier);
+  auto& cis = qi.d_candidateInfos[variable];
+  auto i = cis.find(instantiationTerm);
+
+  if (i != cis.end())
   {
     return false;
   }
-
-  const auto age = d_qinfos[quantifier].d_termInfos.size();
-  d_qinfos[quantifier].d_termInfos[instantiationTerm] =
-      TermInfo::mk(age, phase);
+  cis.insert(i,
+             std::make_pair(instantiationTerm, CandidateInfo::mk(age, phase)));
   return true;
+}
+
+void TermTupleEnumeratorGlobal::registerTryCandidate(Node quantifier,
+                                                     size_t variable,
+                                                     Node candidate)
+{
+  auto& qi = getQuantifierInfo(quantifier);
+  auto& cis = qi.d_candidateInfos[variable];
+  auto i = cis.find(candidate);
+
+  if (i == cis.end())
+  {
+    return;
+  }
+  i->second.d_tried++;
+  return;
 }
 
 size_t TermTupleEnumeratorGlobal::getCurrentPhase(Node quantifier) const
@@ -293,8 +327,9 @@ void TermTupleEnumeratorBase::init()
     for (size_t termIx = 0; termIx < termsSize; termIx++)
     {
       const auto term = getTermNotPermuted(variableIx, termIx);
-      anyTerms =
-          d_global->addTerm(d_quantifier, term, currentPhase) || anyTerms;
+      anyTerms = d_global->addTerm(
+                     d_quantifier, variableIx, term, termIx, currentPhase)
+                 || anyTerms;
     }
     d_termsSizes.push_back(termsSize);
     d_stageCount = std::max(d_stageCount, termsSize);
@@ -532,23 +567,30 @@ void TermTupleEnumeratorBase::runLearning(size_t variableIx)
   {
     return;
   }
+  const auto qii = d_global->d_qinfos.find(d_quantifier);
+  if (qii == d_global->d_qinfos.end())
+  {
+    Trace("inst-alg-rd") << " Missing info about  quantifier" << std::endl;
+    return;
+  }
+  const auto& qinfo = qii->second;
   ++d_global->d_learningCounter;
 
   const auto& relevantTermVector =
       d_context->d_rd->getRDomain(d_quantifier, variableIx)->d_terms;
   std::set<Node> relevant(relevantTermVector.begin(), relevantTermVector.end());
 
-  const auto& qinfo = d_global->d_qinfos.at(d_quantifier);
-  const auto& tsinfo = qinfo.d_termInfos;
+  const auto& tsinfo = qinfo.d_candidateInfos[variableIx];
   std::vector<double> scores(termCount);
 
   //[age, phase, relevant, depth]
-  const size_t featureCount = 4;
+  const size_t featureCount = 5;
   float features[featureCount];
 
   Trace("inst-alg-rd") << "Predicting terms for var" << variableIx
-                       << " on [age, phase, relevant, depth]" << std::endl;
-  AlwaysAssert(d_global->d_ml->numberOfFeatures() == 4);
+                       << " on [age, phase, relevant, depth, tried]"
+                       << std::endl;
+  AlwaysAssert(d_global->d_ml->numberOfFeatures() == 5);
   for (size_t termIx = 0; termIx < termCount; termIx++)
   {
     const auto term = getTermNotPermuted(variableIx, termIx);
@@ -557,6 +599,7 @@ void TermTupleEnumeratorBase::runLearning(size_t variableIx)
     features[1] = termInfo.d_phase;
     features[2] = relevant.find(term) != relevant.end() ? 1 : 0;
     features[3] = TermUtil::getTermDepth(term);
+    features[4] = termInfo.d_tried;
 
     {
       TimerStat::CodeTimer predictTimer(d_global->d_mlTimer);

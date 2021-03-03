@@ -62,6 +62,5 @@ Sigmoid::Sigmoid(const char* modelFile)
   std::fstream fs(modelFile, std::fstream::in);
   double coefficient;
   while (fs >> coefficient) d_coefficients.push_back(coefficient);
-  d_coefficients.pop_back();
 }
 }  // namespace CVC4
