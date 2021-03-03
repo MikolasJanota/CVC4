@@ -40,18 +40,17 @@ InstStrategyEnum::InstStrategyEnum(QuantifiersEngine* qe,
                                    RelevantDomain* rd)
     : QuantifiersModule(qs, qim, qr, qe), d_rd(rd), d_fullSaturateLimit(-1)
 {
-  d_tteContext.d_rd = rd;
-  d_tteContext.d_quantEngine = d_quantEngine;
-  d_tteContext.d_ml = nullptr;
+  d_tteGlobalContext.d_ml = nullptr;
   if (options::lightGBModel.wasSetByUser())
-    d_tteContext.d_ml = new LightGBMWrapper(options::lightGBModel().c_str());
+    d_tteGlobalContext.d_ml =
+        new LightGBMWrapper(options::lightGBModel().c_str());
   else if (options::sigmoidModel.wasSetByUser())
-    d_tteContext.d_ml = new Sigmoid(options::sigmoidModel().c_str());
-  if (d_tteContext.d_ml)
+    d_tteGlobalContext.d_ml = new Sigmoid(options::sigmoidModel().c_str());
+  if (d_tteGlobalContext.d_ml)
   {
     Trace("fs-engine") << "Loaded ML with "
-                       << d_tteContext.d_ml->numberOfFeatures() << " features."
-                       << std::endl;
+                       << d_tteGlobalContext.d_ml->numberOfFeatures()
+                       << " features." << std::endl;
   }
 }
 
@@ -206,11 +205,7 @@ bool InstStrategyEnum::process(Node quantifier, bool fullEffort, bool isRd)
   ttec.d_increaseSum = options::fullSaturateSum();
   ttec.d_isRd = isRd;
   std::unique_ptr<TermTupleEnumeratorInterface> enumerator(
-      mkTermTupleEnumerator(quantifier,
-                            fullEffort,
-                            options::fullSaturateSum(),
-                            isRd,
-                            &d_tteContext));
+      mkTermTupleEnumerator(quantifier, &d_tteGlobalContext, &ttec));
   std::vector<Node> terms;
   std::vector<bool> failMask;
   Instantiate* ie = d_quantEngine->getInstantiate();

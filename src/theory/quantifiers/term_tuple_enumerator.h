@@ -14,12 +14,12 @@
  **/
 #ifndef CVC4__THEORY__QUANTIFIERS__TERM_TUPLE_ENUMERATOR_H
 #define CVC4__THEORY__QUANTIFIERS__TERM_TUPLE_ENUMERATOR_H
-#include <vector>
 #include <map>
+#include <vector>
 
+#include "expr/node.h"
 #include "smt/smt_statistics_registry.h"
 #include "theory/quantifiers/ml.h"
-#include "expr/node.h"
 
 namespace CVC4 {
 namespace theory {
@@ -73,10 +73,8 @@ struct QuantifierInfo
   std::map<Node, TermInfo> d_termInfos;
 };
 
-struct TermTupleEnumeratorContext
+struct TermTupleEnumeratorGlobal
 {
-  QuantifiersEngine* d_quantEngine;
-  RelevantDomain* d_rd;
   LearningInterface* d_ml;
   std::map<Node, QuantifierInfo> d_qinfos;
   TimerStat d_learningTimer, d_mlTimer;
@@ -84,7 +82,7 @@ struct TermTupleEnumeratorContext
   size_t increasePhase(Node quantifier);
   size_t getCurrentPhase(Node quantifier) const;
   bool addTerm(Node quantifier, Node instantiationTerm, size_t phase);
-  TermTupleEnumeratorContext()
+  TermTupleEnumeratorGlobal()
       : d_learningTimer("theory::quantifiers::fs::timers::learningTimer"),
         d_mlTimer("theory::quantifiers::fs::timers::mlTimer"),
         d_learningCounter("theory::quantifiers::fs::mlCounter", 0)
@@ -93,12 +91,22 @@ struct TermTupleEnumeratorContext
     smtStatisticsRegistry()->registerStat(&d_mlTimer);
     smtStatisticsRegistry()->registerStat(&d_learningCounter);
   }
-  ~TermTupleEnumeratorContext()
+  ~TermTupleEnumeratorGlobal()
   {
     smtStatisticsRegistry()->unregisterStat(&d_learningTimer);
     smtStatisticsRegistry()->unregisterStat(&d_mlTimer);
     smtStatisticsRegistry()->unregisterStat(&d_learningCounter);
   }
+};
+
+
+struct TermTupleEnumeratorContext
+{
+  QuantifiersEngine* d_quantEngine;
+  RelevantDomain* d_rd;
+  bool d_fullEffort;
+  bool d_increaseSum;
+  bool d_isRd;
 };
 
 /**  A function to construct a tuple enumerator.
@@ -120,7 +128,9 @@ struct TermTupleEnumeratorContext
  * using the relevant domain class  (controlled by d_isRd).
  */
 TermTupleEnumeratorInterface* mkTermTupleEnumerator(
-    Node quantifier, const TermTupleEnumeratorContext* context);
+    Node quantifier,
+    TermTupleEnumeratorGlobal* global,
+    TermTupleEnumeratorContext* context);
 
 }  // namespace quantifiers
 }  // namespace theory

@@ -15,7 +15,6 @@
 #include "theory/quantifiers/term_tuple_enumerator.h"
 
 #include <algorithm>
-#include <cstddef>
 #include <functional>
 #include <iterator>
 #include <map>
@@ -85,13 +84,11 @@ class TermTupleEnumeratorBase : public TermTupleEnumeratorInterface
  public:
   /** Initialize the class with the quantifier to be instantiated. */
   TermTupleEnumeratorBase(Node quantifier,
-                          bool fullEffort,
-                          bool increaseSum,
+                          TermTupleEnumeratorGlobal* global,
                           TermTupleEnumeratorContext* context)
       : d_quantifier(quantifier),
-        d_fullEffort(fullEffort),
-        d_increaseSum(increaseSum),
         d_variableCount(d_quantifier[0].getNumChildren()),
+        d_global(global),
         d_context(context),
         d_stepCounter(0),
         d_disabledCombinations(
@@ -115,7 +112,9 @@ class TermTupleEnumeratorBase : public TermTupleEnumeratorInterface
   /** number of variables in the quantifier */
   const size_t d_variableCount;
   /** context of structures with a longer lifespan */
-  const TermTupleEnumeratorContext* const d_context;
+  TermTupleEnumeratorGlobal* const d_global;
+  /** context of structures with a longer lifespan */
+  TermTupleEnumeratorContext* const d_context;
   /** type for each variable */
   std::vector<TypeNode> d_typeCache;
   /** number of candidate terms for each variable */
@@ -135,7 +134,6 @@ class TermTupleEnumeratorBase : public TermTupleEnumeratorInterface
   /**becomes false once the enumerator runs out of options*/
   bool d_hasNext;
   std::vector<std::vector<size_t> > d_termPermutations;
-  /* Allow larger indices from now on */
   /** the length of the prefix that has to be changed in the next
   combination, i.e.  the number of the most significant digits that need to be
   changed in order to escape a  useless instantiation */
@@ -159,20 +157,17 @@ class TermTupleEnumeratorBase : public TermTupleEnumeratorInterface
   bool nextCombinationMax();
   /** Set up terms for given variable.  */
   virtual size_t prepareTerms(size_t variableIx) = 0;
-  /**
-   *  Get a given term for a given variable.
-   */
-  virtual Node getTermCore(size_t variableIx,
-                           size_t term_index) CVC4_WARN_UNUSED_RESULT = 0;
+  /** Get a given term for a given variable.  */
+  virtual Node getTermNotPermuted(size_t variableIx, size_t term_index)
+      CVC4_WARN_UNUSED_RESULT = 0;
 
   Node getTerm(size_t variableIx, size_t term_index) CVC4_WARN_UNUSED_RESULT
   {
-    return getTermCore(variableIx, d_termPermutations[variableIx][term_index]);
+    return getTermNotPermuted(variableIx,
+                              d_termPermutations[variableIx][term_index]);
   }
 
   void runLearning(size_t variableIx);
-  virtual Node getTerm(size_t variableIx,
-                       size_t term_index) CVC4_WARN_UNUSED_RESULT = 0;
 };
 
 /**
@@ -182,10 +177,9 @@ class TermTupleEnumeratorBasic : public TermTupleEnumeratorBase
 {
  public:
   TermTupleEnumeratorBasic(Node quantifier,
-                           bool fullEffort,
-                           bool increaseSum,
+                           TermTupleEnumeratorGlobal* global,
                            TermTupleEnumeratorContext* context)
-      : TermTupleEnumeratorBase(quantifier, fullEffort, increaseSum, context)
+      : TermTupleEnumeratorBase(quantifier, global, context)
   {
   }
 
@@ -195,7 +189,8 @@ class TermTupleEnumeratorBasic : public TermTupleEnumeratorBase
   /**  a list of terms for each type */
   std::map<TypeNode, std::vector<Node> > d_termDbList;
   virtual size_t prepareTerms(size_t variableIx) override;
-  virtual Node getTermCore(size_t variableIx, size_t term_index) override;
+  virtual Node getTermNotPermuted(size_t variableIx,
+                                  size_t term_index) override;
 };
 
 /**
@@ -205,10 +200,9 @@ class TermTupleEnumeratorRD : public TermTupleEnumeratorBase
 {
  public:
   TermTupleEnumeratorRD(Node quantifier,
-                        bool fullEffort,
-                        bool increaseSum,
+                        TermTupleEnumeratorGlobal* global,
                         TermTupleEnumeratorContext* context)
-      : TermTupleEnumeratorBase(quantifier, fullEffort, increaseSum, context)
+      : TermTupleEnumeratorBase(quantifier, global, context)
   {
   }
   virtual ~TermTupleEnumeratorRD() = default;
@@ -219,7 +213,7 @@ class TermTupleEnumeratorRD : public TermTupleEnumeratorBase
     return d_context->d_rd->getRDomain(d_quantifier, variableIx)
         ->d_terms.size();
   }
-  virtual Node getTermCore(size_t variableIx, size_t term_index) override
+  virtual Node getTermNotPermuted(size_t variableIx, size_t term_index) override
   {
     return d_context->d_rd->getRDomain(d_quantifier, variableIx)
         ->d_terms[term_index];
@@ -227,19 +221,20 @@ class TermTupleEnumeratorRD : public TermTupleEnumeratorBase
 };
 
 TermTupleEnumeratorInterface* mkTermTupleEnumerator(
-    Node quantifier, const TermTupleEnumeratorContext* context)
+    Node quantifier,
+    TermTupleEnumeratorGlobal* global,
+    TermTupleEnumeratorContext* context)
 {
-  return isRd ? static_cast<TermTupleEnumeratorInterface*>(
-             new TermTupleEnumeratorRD(
-                 quantifier, fullEffort, increaseSum, context))
-              : static_cast<TermTupleEnumeratorInterface*>(
-                  new TermTupleEnumeratorBasic(
-                      quantifier, fullEffort, increaseSum, context));
+  return context->d_isRd
+             ? static_cast<TermTupleEnumeratorInterface*>(
+                 new TermTupleEnumeratorRD(quantifier, global, context))
+             : static_cast<TermTupleEnumeratorInterface*>(
+                 new TermTupleEnumeratorBasic(quantifier, global, context));
 }
 
-bool TermTupleEnumeratorContext::addTerm(Node quantifier,
-                                         Node instantiationTerm,
-                                         size_t phase)
+bool TermTupleEnumeratorGlobal::addTerm(Node quantifier,
+                                        Node instantiationTerm,
+                                        size_t phase)
 {
   if (ContainsKey(d_qinfos[quantifier].d_termInfos, instantiationTerm))
   {
@@ -252,13 +247,13 @@ bool TermTupleEnumeratorContext::addTerm(Node quantifier,
   return true;
 }
 
-size_t TermTupleEnumeratorContext::getCurrentPhase(Node quantifier) const
+size_t TermTupleEnumeratorGlobal::getCurrentPhase(Node quantifier) const
 {
   const auto i = d_qinfos.find(quantifier);
   return i != d_qinfos.end() ? i->second.d_currentPhase : 0;
 }
 
-size_t TermTupleEnumeratorContext::increasePhase(Node quantifier)
+size_t TermTupleEnumeratorGlobal::increasePhase(Node quantifier)
 {
   const auto i = d_qinfos.find(quantifier);
   return i != d_qinfos.end() ? i->second.d_currentPhase++
@@ -280,8 +275,8 @@ void TermTupleEnumeratorBase::init()
     return;
   }
 
-  bool anyTerms = false;
-  const auto currentPhase = d_context->getCurrentPhase(d_quantifier);
+  bool anyTerms = false;  // keep track of whether any terms  where added
+  const auto currentPhase = d_global->getCurrentPhase(d_quantifier);
   // prepare a sequence of terms for each quantified variable
   // additionally initialize the cache for variable types
   for (size_t variableIx = 0; variableIx < d_variableCount; variableIx++)
@@ -290,16 +285,16 @@ void TermTupleEnumeratorBase::init()
     const size_t termsSize = prepareTerms(variableIx);
     Trace("inst-alg-rd") << "Variable " << variableIx << " has " << termsSize
                          << " in relevant domain." << std::endl;
-    if (termsSize == 0 && !d_fullEffort)
+    if (termsSize == 0 && !d_context->d_fullEffort)
     {
       d_hasNext = false;
-      return;  // give up on an empty domBoomain
+      return;  // give up on an empty domain
     }
     for (size_t termIx = 0; termIx < termsSize; termIx++)
     {
-      const auto term = getTermCore(variableIx, termIx);
+      const auto term = getTermNotPermuted(variableIx, termIx);
       anyTerms =
-          d_context->addTerm(d_quantifier, term, currentPhase) || anyTerms;
+          d_global->addTerm(d_quantifier, term, currentPhase) || anyTerms;
     }
     d_termsSizes.push_back(termsSize);
     d_stageCount = std::max(d_stageCount, termsSize);
@@ -311,7 +306,7 @@ void TermTupleEnumeratorBase::init()
   d_termIndex.resize(d_variableCount, 0);
   if (anyTerms)
   {
-    d_context->increasePhase(d_quantifier);
+    d_global->increasePhase(d_quantifier);
   }
 }
 
@@ -368,18 +363,18 @@ void TermTupleEnumeratorBase::next(/*out*/ std::vector<Node>& terms)
 
 bool TermTupleEnumeratorBase::increaseStageSum()
 {
-  const size_t lowerBound = d_currentSum + 1;
+  const size_t lowerBound = d_currentStage + 1;
   Trace("inst-alg-rd") << "Try sum " << lowerBound << "..." << std::endl;
   d_currentStage = 0;
   for (size_t digit = d_termIndex.size();
        d_currentStage < lowerBound && digit--;)
   {
-    const size_t missing = lowerBound - d_currentSum;
+    const size_t missing = lowerBound - d_currentStage;
     const size_t maxValue = d_termsSizes[digit] ? d_termsSizes[digit] - 1 : 0;
     d_termIndex[digit] = std::min(missing, maxValue);
-    d_currentSum += d_termIndex[digit];
+    d_currentStage += d_termIndex[digit];
   }
-  return d_currentSum >= lowerBound;
+  return d_currentStage >= lowerBound;
 }
 
 bool TermTupleEnumeratorBase::increaseStage()
@@ -390,8 +385,8 @@ bool TermTupleEnumeratorBase::increaseStage()
 
 bool TermTupleEnumeratorBase::increaseStageMax()
 {
-  d_stage++;
-  if (d_stage >= d_stageCount)
+  d_currentStage++;
+  if (d_currentStage >= d_stageCount)
   {
     return false;
   }
@@ -403,10 +398,10 @@ bool TermTupleEnumeratorBase::increaseStageMax()
   bool found = false;
   for (size_t digit = d_termIndex.size(); !found && digit--;)
   {
-    if (d_termsSizes[digit] > d_stage)
+    if (d_termsSizes[digit] > d_currentStage)
     {
       found = true;
-      d_termIndex[digit] = d_stage;
+      d_termIndex[digit] = d_currentStage;
     }
   }
   Assert(found);
@@ -525,26 +520,25 @@ bool TermTupleEnumeratorBase::nextCombinationSum()
   return true;
 }
 
-
 void TermTupleEnumeratorBase::runLearning(size_t variableIx)
 {
-  TimerStat::CodeTimer codeTimer(d_context->d_learningTimer);
+  TimerStat::CodeTimer codeTimer(d_global->d_learningTimer);
   const auto termCount = d_termsSizes[variableIx];
   auto& permutation = d_termPermutations[variableIx];
   permutation.resize(termCount, 0);
   std::iota(permutation.begin(), permutation.end(), 0);
 
-  if (d_context->d_ml == nullptr || termCount == 0)
+  if (d_global->d_ml == nullptr || termCount == 0)
   {
     return;
   }
-  ++d_context->d_learningCounter;
+  ++d_global->d_learningCounter;
 
   const auto& relevantTermVector =
       d_context->d_rd->getRDomain(d_quantifier, variableIx)->d_terms;
   std::set<Node> relevant(relevantTermVector.begin(), relevantTermVector.end());
 
-  const auto& qinfo = d_context->d_qinfos.at(d_quantifier);
+  const auto& qinfo = d_global->d_qinfos.at(d_quantifier);
   const auto& tsinfo = qinfo.d_termInfos;
   std::vector<double> scores(termCount);
 
@@ -554,10 +548,10 @@ void TermTupleEnumeratorBase::runLearning(size_t variableIx)
 
   Trace("inst-alg-rd") << "Predicting terms for var" << variableIx
                        << " on [age, phase, relevant, depth]" << std::endl;
-  AlwaysAssert(d_context->d_ml->numberOfFeatures() == 4);
+  AlwaysAssert(d_global->d_ml->numberOfFeatures() == 4);
   for (size_t termIx = 0; termIx < termCount; termIx++)
   {
-    const auto term = getTermCore(variableIx, termIx);
+    const auto term = getTermNotPermuted(variableIx, termIx);
     const auto termInfo = tsinfo.at(term);
     features[0] = termInfo.d_age;
     features[1] = termInfo.d_phase;
@@ -565,8 +559,8 @@ void TermTupleEnumeratorBase::runLearning(size_t variableIx)
     features[3] = TermUtil::getTermDepth(term);
 
     {
-      TimerStat::CodeTimer predictTimer(d_context->d_mlTimer);
-      scores[termIx] = d_context->d_ml->predict(features);
+      TimerStat::CodeTimer predictTimer(d_global->d_mlTimer);
+      scores[termIx] = d_global->d_ml->predict(features);
     }
 
     Trace("inst-alg-rd") << "Prediction " << term << " : [";
@@ -583,7 +577,7 @@ void TermTupleEnumeratorBase::runLearning(size_t variableIx)
   for (size_t i = 0; i < permutation.size(); i++)
   {
     Trace("inst-alg-rd") << (i ? ", " : "")
-                         // << getTermCore(variableIx, permutation[i])
+                         // << getTermNotPermuted(variableIx, permutation[i])
                          //<< " : "
                          << getTerm(variableIx, i);
   }
@@ -620,7 +614,8 @@ size_t TermTupleEnumeratorBasic::prepareTerms(size_t variableIx)
   return d_termDbList[type_node].size();
 }
 
-Node TermTupleEnumeratorBasic::getTermCore(size_t variableIx, size_t term_index)
+Node TermTupleEnumeratorBasic::getTermNotPermuted(size_t variableIx,
+                                                  size_t term_index)
 {
   const TypeNode type_node = d_typeCache[variableIx];
   Assert(term_index < d_termDbList[type_node].size());

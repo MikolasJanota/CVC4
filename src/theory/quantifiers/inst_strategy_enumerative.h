@@ -19,12 +19,12 @@
 
 #include "context/context.h"
 #include "context/context_mm.h"
-#include "theory/quantifiers/quant_module.h"
 #include "theory/quantifiers/ml.h"
+#include "theory/quantifiers/quant_module.h"
 /* #include "theory/quantifiers/quant_util.h" */
+#include "smt/smt_statistics_registry.h"
 #include "theory/quantifiers/relevant_domain.h"
 #include "theory/quantifiers/term_tuple_enumerator.h"
-#include "smt/smt_statistics_registry.h"
 
 namespace CVC4 {
 namespace theory {
@@ -73,9 +73,9 @@ class InstStrategyEnum : public QuantifiersModule
                    RelevantDomain* rd);
   ~InstStrategyEnum()
   {
-    if (d_tteContext.d_ml)
+    if (d_tteGlobalContext.d_ml)
     {
-      delete d_tteContext.d_ml;
+      delete d_tteGlobalContext.d_ml;
     }
   }
   /** Presolve */
@@ -124,7 +124,7 @@ class InstStrategyEnum : public QuantifiersModule
    */
   int32_t d_fullSaturateLimit;
 
-  TermTupleEnumeratorContext d_tteContext;  
+  TermTupleEnumeratorGlobal d_tteGlobalContext;
 }; /* class InstStrategyEnum */
 
 }  // namespace quantifiers
