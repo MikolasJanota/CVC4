@@ -88,7 +88,7 @@ struct TermTupleEnumeratorGlobal
                Node instantiationTerm,
                size_t age,
                size_t phase);
-  void registerTryCandidate(Node quantifier, size_t child_ix, Node candidate);
+  void registerTryCandidate(QuantifierInfo&, size_t child_ix, Node candidate);
   TermTupleEnumeratorGlobal()
       : d_learningTimer("theory::quantifiers::fs::timers::learningTimer"),
         d_mlTimer("theory::quantifiers::fs::timers::mlTimer"),

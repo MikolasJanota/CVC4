@@ -265,11 +265,10 @@ bool TermTupleEnumeratorGlobal::addTerm(Node quantifier,
   return true;
 }
 
-void TermTupleEnumeratorGlobal::registerTryCandidate(Node quantifier,
+void TermTupleEnumeratorGlobal::registerTryCandidate(QuantifierInfo& qi,
                                                      size_t variable,
                                                      Node candidate)
 {
-  auto& qi = getQuantifierInfo(quantifier);
   auto& cis = qi.d_candidateInfos[variable];
   auto i = cis.find(candidate);
 
@@ -380,6 +379,7 @@ void TermTupleEnumeratorBase::failureReason(const std::vector<bool>& mask)
 
 void TermTupleEnumeratorBase::next(/*out*/ std::vector<Node>& terms)
 {
+  auto& qi = d_global->getQuantifierInfo(d_quantifier);
   Trace("inst-alg-rd") << "Try instantiation: " << d_termIndex << std::endl;
   terms.resize(d_variableCount);
   for (size_t variableIx = 0; variableIx < d_variableCount; variableIx++)
@@ -387,6 +387,10 @@ void TermTupleEnumeratorBase::next(/*out*/ std::vector<Node>& terms)
     const Node t = d_termsSizes[variableIx] == 0
                        ? Node::null()
                        : getTerm(variableIx, d_termIndex[variableIx]);
+    if (!t.isNull())
+    {
+      d_global->registerTryCandidate(qi, variableIx, t);
+    }
     terms[variableIx] = t;
     Trace("inst-alg-rd") << t << "  ";
     Assert(terms[variableIx].isNull()
