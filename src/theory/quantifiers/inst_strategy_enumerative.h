@@ -88,10 +88,10 @@ class InstStrategyEnum : public QuantifiersModule
   }
 
  private:
-  /** Pointer to the pseudo-random generator*/
-  std::mt19937* d_mt;
   /** Pointer to the relevant domain utility of quantifiers engine */
   RelevantDomain* d_rd;
+  /** Pointer to the pseudo-random generator*/
+  std::mt19937* d_mt;
   /** process quantified formula
    *
    * q is the quantified formula we are constructing instances for.
