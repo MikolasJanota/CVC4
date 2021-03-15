@@ -37,8 +37,12 @@ InstStrategyEnum::InstStrategyEnum(QuantifiersEngine* qe,
                                    QuantifiersState& qs,
                                    QuantifiersInferenceManager& qim,
                                    QuantifiersRegistry& qr,
-                                   RelevantDomain* rd)
-    : QuantifiersModule(qs, qim, qr, qe), d_rd(rd), d_fullSaturateLimit(-1)
+                                   RelevantDomain* rd,
+                                   std::mt19937* mt)
+    : QuantifiersModule(qs, qim, qr, qe),
+      d_rd(rd),
+      d_mt(mt),
+      d_fullSaturateLimit(-1)
 {
 }
 void InstStrategyEnum::presolve()
@@ -188,6 +192,7 @@ bool InstStrategyEnum::process(Node quantifier, bool fullEffort, bool isRd)
   TermTupleEnumeratorContext ttec;
   ttec.d_quantEngine = d_quantEngine;
   ttec.d_rd = d_rd;
+  ttec.d_mt = d_mt;
   ttec.d_fullEffort = fullEffort;
   ttec.d_increaseSum = options::fullSaturateSum();
   ttec.d_isRd = isRd;

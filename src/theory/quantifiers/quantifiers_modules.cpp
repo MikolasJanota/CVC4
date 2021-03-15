@@ -15,8 +15,8 @@
 #include "theory/quantifiers/quantifiers_modules.h"
 
 #include "options/quantifiers_options.h"
-#include "theory/quantifiers_engine.h"
 #include "theory/quantifiers/relevant_domain.h"
+#include "theory/quantifiers_engine.h"
 
 namespace CVC4 {
 namespace theory {
@@ -24,6 +24,7 @@ namespace quantifiers {
 
 QuantifiersModules::QuantifiersModules()
     : d_rel_dom(nullptr),
+      d_mt(nullptr),
       d_alpha_equiv(nullptr),
       d_inst_engine(nullptr),
       d_model_engine(nullptr),
@@ -96,7 +97,9 @@ void QuantifiersModules::initialize(QuantifiersEngine* qe,
   if (options::fullSaturateQuant() || options::fullSaturateInterleave())
   {
     d_rel_dom.reset(new RelevantDomain(qe, qr));
-    d_fs.reset(new InstStrategyEnum(qe, qs, qim, qr, d_rel_dom.get()));
+    d_mt.reset(new std::mt19937(options::fullSaturateRndSeed()));
+    d_fs.reset(
+        new InstStrategyEnum(qe, qs, qim, qr, d_rel_dom.get(), d_mt.get()));
     modules.push_back(d_fs.get());
   }
   if (options::sygusInst())

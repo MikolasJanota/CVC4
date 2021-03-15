@@ -15,9 +15,12 @@
 #include "theory/quantifiers/term_tuple_enumerator.h"
 
 #include <algorithm>
+#include <cmath>
 #include <functional>
 #include <iterator>
 #include <map>
+#include <numeric>
+#include <random>
 #include <vector>
 
 #include "base/map_util.h"
@@ -129,6 +132,7 @@ class TermTupleEnumeratorBase : public TermTupleEnumeratorInterface
   size_t d_stageCount;
   /**becomes false once the enumerator runs out of options*/
   bool d_hasNext;
+  std::vector<std::vector<size_t> > d_termPermutations;
   /** the length of the prefix that has to be changed in the next
   combination, i.e.  the number of the most significant digits that need to be
   changed in order to escape a  useless instantiation */
@@ -153,8 +157,18 @@ class TermTupleEnumeratorBase : public TermTupleEnumeratorInterface
   /** Set up terms for given variable.  */
   virtual size_t prepareTerms(size_t variableIx) = 0;
   /** Get a given term for a given variable.  */
-  virtual Node getTerm(size_t variableIx,
-                       size_t term_index) CVC4_WARN_UNUSED_RESULT = 0;
+  Node getTerm(size_t variableIx, size_t termIx) CVC4_WARN_UNUSED_RESULT
+  {
+    Assert(variableIx < d_variableCount);
+    const auto i = d_termPermutations[variableIx][termIx];
+    Assert(i < d_termsSizes[variableIx]);
+    return getTermNotPermuted(variableIx, i);
+  }
+  virtual Node getTermNotPermuted(size_t variableIx,
+                                  size_t termIx) CVC4_WARN_UNUSED_RESULT = 0;
+
+  void setupPermutation(size_t variableIx);
+  void setupPermutations();
 };
 
 /**
@@ -175,7 +189,8 @@ class TermTupleEnumeratorBasic : public TermTupleEnumeratorBase
   /**  a list of terms for each type */
   std::map<TypeNode, std::vector<Node> > d_termDbList;
   virtual size_t prepareTerms(size_t variableIx) override;
-  virtual Node getTerm(size_t variableIx, size_t term_index) override;
+  virtual Node getTermNotPermuted(size_t variableIx,
+                                  size_t term_index) override;
 };
 
 /**
@@ -197,7 +212,7 @@ class TermTupleEnumeratorRD : public TermTupleEnumeratorBase
     return d_context->d_rd->getRDomain(d_quantifier, variableIx)
         ->d_terms.size();
   }
-  virtual Node getTerm(size_t variableIx, size_t term_index) override
+  virtual Node getTermNotPermuted(size_t variableIx, size_t term_index) override
   {
     return d_context->d_rd->getRDomain(d_quantifier, variableIx)
         ->d_terms[term_index];
@@ -211,6 +226,50 @@ TermTupleEnumeratorInterface* mkTermTupleEnumerator(
              new TermTupleEnumeratorRD(quantifier, context))
                          : static_cast<TermTupleEnumeratorInterface*>(
                              new TermTupleEnumeratorBasic(quantifier, context));
+}
+
+void TermTupleEnumeratorBase::setupPermutations()
+{
+  d_termPermutations.resize(d_variableCount);
+  for (size_t i = 0; i < d_variableCount; i++)
+  {
+    setupPermutation(i);
+  }
+}
+
+void TermTupleEnumeratorBase::setupPermutation(size_t varIx)
+{
+  const float p = options::fullSaturateRndProbability();
+  const float q = options::fullSaturateRndDistance();
+  Trace("fs-rnd") << "Permuting var " << varIx << " at " << p << " " << q
+                  << std::endl;
+  const auto termCount = d_termsSizes[varIx];
+  auto& permutation = d_termPermutations[varIx];
+  permutation.resize(termCount, 0);
+  std::iota(permutation.begin(), permutation.end(), 0);
+  if (std::fpclassify(p) == FP_ZERO)
+  {
+    return;
+  }
+  std::uniform_real_distribution<float> ud(0, 1);
+  for (size_t i = 0; i < termCount;)
+  {
+    if (ud(*d_context->d_mt) > p)
+    {
+      i++;
+      continue;
+    }
+    size_t j = i + 1;
+    for (; ud(*d_context->d_mt) < q && j < termCount; j++)
+      ;
+    if (j < termCount)
+    {
+      std::swap(permutation[i], permutation[j]);
+      Trace("fs-rnd") << "Permuted for variable " << varIx << ": " << i << "<->"
+                      << j << std::endl;
+    }
+    i = j + 1;
+  }
 }
 
 void TermTupleEnumeratorBase::init()
@@ -247,6 +306,7 @@ void TermTupleEnumeratorBase::init()
   Trace("inst-alg-rd") << "Will do " << d_stageCount
                        << " stages of instantiation." << std::endl;
   d_termIndex.resize(d_variableCount, 0);
+  setupPermutations();
 }
 
 bool TermTupleEnumeratorBase::hasNext()
@@ -489,11 +549,12 @@ size_t TermTupleEnumeratorBasic::prepareTerms(size_t variableIx)
   return d_termDbList[type_node].size();
 }
 
-Node TermTupleEnumeratorBasic::getTerm(size_t variableIx, size_t term_index)
+Node TermTupleEnumeratorBasic::getTermNotPermuted(size_t variableIx,
+                                                  size_t termIx)
 {
-  const TypeNode type_node = d_typeCache[variableIx];
-  Assert(term_index < d_termDbList[type_node].size());
-  return d_termDbList[type_node][term_index];
+  const TypeNode typeNode = d_typeCache[variableIx];
+  Assert(termIx < d_termDbList[typeNode].size());
+  return d_termDbList[typeNode][termIx];
 }
 
 }  // namespace quantifiers

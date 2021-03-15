@@ -12,6 +12,8 @@
  ** \brief Enumerative instantiation
  **/
 
+#include <random>
+
 #include "cvc4_private.h"
 
 #ifndef CVC4__INST_STRATEGY_ENUMERATIVE_H
@@ -65,7 +67,8 @@ class InstStrategyEnum : public QuantifiersModule
                    QuantifiersState& qs,
                    QuantifiersInferenceManager& qim,
                    QuantifiersRegistry& qr,
-                   RelevantDomain* rd);
+                   RelevantDomain* rd,
+                   std::mt19937*);
   ~InstStrategyEnum() {}
   /** Presolve */
   void presolve() override;
@@ -85,6 +88,8 @@ class InstStrategyEnum : public QuantifiersModule
   }
 
  private:
+  /** Pointer to the pseudo-random generator*/
+  std::mt19937* d_mt;
   /** Pointer to the relevant domain utility of quantifiers engine */
   RelevantDomain* d_rd;
   /** process quantified formula
@@ -114,8 +119,8 @@ class InstStrategyEnum : public QuantifiersModule
   int32_t d_fullSaturateLimit;
 }; /* class InstStrategyEnum */
 
-} /* CVC4::theory::quantifiers namespace */
-} /* CVC4::theory namespace */
-} /* CVC4 namespace */
+}  // namespace quantifiers
+}  // namespace theory
+}  // namespace CVC4
 
 #endif

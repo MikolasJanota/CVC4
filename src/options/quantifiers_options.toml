@@ -565,6 +565,34 @@ header = "options/quantifiers_options.h"
   help       = "enumerating tuples of quantifiers by increasing the sum of indices, rather than the maximum"
 
 [[option]]
+  name       = "fullSaturateRndDistance"
+  category   = "regular"
+  long       = "fs-rnd-distance=N"
+  type       = "float"
+  default    = "0.1"
+  read_only  = true
+  help       = "distance for the FS perturbation"
+
+[[option]]
+  name       = "fullSaturateRndSeed"
+  category   = "regular"
+  long       = "fs-rnd-seed=N"
+  type       = "int"
+  default    = "0"
+  read_only  = true
+  help       = "seed for the FS perturbation"
+
+[[option]]
+  name       = "fullSaturateRndProbability"
+  category   = "regular"
+  long       = "fs-rnd-probability=N"
+  type       = "float"
+  default    = "0"
+  read_only  = true
+  help       = "probability for the FS perturbation"
+
+
+[[option]]
   name       = "literalMatchMode"
   category   = "regular"
   long       = "literal-matching=MODE"

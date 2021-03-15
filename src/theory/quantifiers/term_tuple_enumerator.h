@@ -14,6 +14,7 @@
  **/
 #ifndef CVC4__THEORY__QUANTIFIERS__TERM_TUPLE_ENUMERATOR_H
 #define CVC4__THEORY__QUANTIFIERS__TERM_TUPLE_ENUMERATOR_H
+#include <random>
 #include <vector>
 
 #include "expr/node.h"
@@ -57,6 +58,7 @@ struct TermTupleEnumeratorContext
 {
   QuantifiersEngine* d_quantEngine;
   RelevantDomain* d_rd;
+  std::mt19937* d_mt;
   bool d_fullEffort;
   bool d_increaseSum;
   bool d_isRd;

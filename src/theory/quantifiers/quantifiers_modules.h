@@ -12,6 +12,8 @@
  ** \brief Class for initializing the modules of quantifiers engine
  **/
 
+#include <random>
+
 #include "cvc4_private.h"
 
 #ifndef CVC4__THEORY__QUANTIFIERS__QUANTIFIERS_MODULES_H
@@ -30,7 +32,7 @@
 
 namespace CVC4 {
 namespace theory {
-  
+
 class QuantifiersEngine;
 class DecisionManager;
 
@@ -44,6 +46,7 @@ namespace quantifiers {
 class QuantifiersModules
 {
   friend class ::CVC4::theory::QuantifiersEngine;
+
  public:
   QuantifiersModules();
   ~QuantifiersModules();
@@ -63,6 +66,8 @@ class QuantifiersModules
   //------------------------------ quantifier utilities
   /** relevant domain */
   std::unique_ptr<RelevantDomain> d_rel_dom;
+  /** pseudo-random generator */
+  std::unique_ptr<std::mt19937> d_mt;
   //------------------------------ quantifiers modules
   /** alpha equivalence */
   std::unique_ptr<AlphaEquivalence> d_alpha_equiv;
